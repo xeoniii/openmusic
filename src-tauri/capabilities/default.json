@@ -1,0 +1,21 @@
+{
+  "identifier": "default",
+  "description": "Default capabilities for OpenMusic",
+  "windows": ["main"],
+  "permissions": [
+    "core:default",
+    "dialog:default",
+    "core:event:default",
+    "core:window:default",
+    "core:webview:default",
+    "fs:default",
+    {
+      "identifier": "fs:scope",
+      "allow": [
+        { "path": "$HOME/**" },
+        { "path": "$AUDIO/**" },
+        { "path": "$MUSIC/**" }
+      ]
+    }
+  ]
+}

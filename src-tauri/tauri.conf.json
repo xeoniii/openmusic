@@ -1,0 +1,44 @@
+{
+  "$schema": "../node_modules/@tauri-apps/cli/schema.json",
+  "productName": "OpenMusic",
+  "version": "0.5.4",
+  "identifier": "com.openmusic.player",
+  "build": {
+    "beforeDevCommand": "npm run dev",
+    "beforeBuildCommand": "npm run build",
+    "devUrl": "http://localhost:5173",
+    "frontendDist": "../dist"
+  },
+  "bundle": {
+    "active": true,
+    "targets": "all",
+    "icon": [
+      "icons/32x32.png",
+      "icons/128x128.png",
+      "icons/128x128@2x.png",
+      "icons/icon.icns",
+      "icons/icon.ico",
+      "icons/icon.png"
+    ]
+  },
+  "app": {
+    "withGlobalTauri": true,
+    "windows": [
+      {
+        "fullscreen": false,
+        "resizable": true,
+        "title": "OpenMusic",
+        "width": 1280,
+        "height": 800,
+        "minWidth": 900,
+        "minHeight": 600,
+        "decorations": true,
+        "transparent": false,
+        "devtools": true
+      }
+    ],
+    "security": {
+      "csp": "default-src 'self'; media-src 'self' http://127.0.0.1:* http://localhost:* file: http://localhost:1421 http://localhost:1422; img-src 'self' data: blob: http://localhost:1421 http://localhost:1422; style-src 'self' 'unsafe-inline'"
+    }
+  }
+}

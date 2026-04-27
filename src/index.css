@@ -1,0 +1,371 @@
+/* ── Google Fonts ─────────────────────────────────────────────────────────── */
+@import url('https://fonts.googleapis.com/css2?family=Outfit:wght@300;400;500;600;700;800&family=DM+Sans:ital,opsz,wght@0,9..40,300;0,9..40,400;0,9..40,500;0,9..40,600;1,9..40,400&family=JetBrains+Mono:wght@400;500&display=swap');
+
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+/* ══════════════════════════════════════════════════════════════════════════════
+   ACCENT COLOR PRESETS
+   Each preset defines the full accent token family.
+   Applied to :root by the Settings panel via JS.
+══════════════════════════════════════════════════════════════════════════════ */
+
+:root,
+[data-accent="modrinth"] {
+  --accent:        #1bd96a;
+  --accent-dim:    #15a854;
+  --accent-bright: #3fffa2;
+  --accent-muted:  rgba(27, 217, 106, 0.15);
+  --accent-glow:   rgba(27, 217, 106, 0.35);
+  --text-accent:   #1bd96a;
+}
+
+[data-accent="electric-blue"] {
+  --accent:        #3b82f6;
+  --accent-dim:    #2563eb;
+  --accent-bright: #93c5fd;
+  --accent-muted:  rgba(59, 130, 246, 0.15);
+  --accent-glow:   rgba(59, 130, 246, 0.35);
+  --text-accent:   #60a5fa;
+}
+
+[data-accent="violet"] {
+  --accent:        #8b5cf6;
+  --accent-dim:    #7c3aed;
+  --accent-bright: #c4b5fd;
+  --accent-muted:  rgba(139, 92, 246, 0.15);
+  --accent-glow:   rgba(139, 92, 246, 0.35);
+  --text-accent:   #a78bfa;
+}
+
+[data-accent="rose"] {
+  --accent:        #f43f5e;
+  --accent-dim:    #e11d48;
+  --accent-bright: #fda4af;
+  --accent-muted:  rgba(244, 63, 94, 0.15);
+  --accent-glow:   rgba(244, 63, 94, 0.35);
+  --text-accent:   #fb7185;
+}
+
+[data-accent="amber"] {
+  --accent:        #f59e0b;
+  --accent-dim:    #d97706;
+  --accent-bright: #fcd34d;
+  --accent-muted:  rgba(245, 158, 11, 0.15);
+  --accent-glow:   rgba(245, 158, 11, 0.35);
+  --text-accent:   #fbbf24;
+}
+
+[data-accent="cyan"] {
+  --accent:        #06b6d4;
+  --accent-dim:    #0891b2;
+  --accent-bright: #67e8f9;
+  --accent-muted:  rgba(6, 182, 212, 0.15);
+  --accent-glow:   rgba(6, 182, 212, 0.35);
+  --text-accent:   #22d3ee;
+}
+
+/* ══════════════════════════════════════════════════════════════════════════════
+   SURFACE & TEXT TOKENS (fixed — independent of accent)
+══════════════════════════════════════════════════════════════════════════════ */
+:root {
+  /* Surfaces */
+  --surface-base:    #0f1014;
+  --surface-raised:  #16181d;
+  --surface-overlay: #1d2028;
+  --surface-glass:   rgba(22, 24, 29, 0.65);
+
+  /* Text */
+  --text-primary:   #f0f2f5;
+  --text-secondary: #9ba3b2;
+  --text-muted:     #565d6e;
+
+  /* Borders */
+  --border-subtle: rgba(255, 255, 255, 0.06);
+  --border-glass:  rgba(255, 255, 255, 0.10);
+
+  /* Player bar */
+  --player-height: 100px;
+  --sidebar-width: 224px;
+}
+
+/* ══════════════════════════════════════════════════════════════════════════════
+   RESET & BASE
+══════════════════════════════════════════════════════════════════════════════ */
+*, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+html { height: 100%; font-size: 15px; }
+
+body {
+  height: 100%;
+  font-family: 'DM Sans', sans-serif;
+  background: var(--surface-base);
+  color: var(--text-primary);
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+  overflow: hidden;
+  user-select: none;
+}
+
+#root { height: 100%; display: flex; flex-direction: column; }
+
+/* ══════════════════════════════════════════════════════════════════════════════
+   SCROLLBAR
+══════════════════════════════════════════════════════════════════════════════ */
+::-webkit-scrollbar            { width: 6px; height: 6px; }
+::-webkit-scrollbar-track      { background: transparent; }
+::-webkit-scrollbar-thumb      { background: transparent; border-radius: 99px; transition: background 0.3s; }
+*:hover::-webkit-scrollbar-thumb { background: var(--border-glass); }
+::-webkit-scrollbar-thumb:hover { background: var(--text-muted) !important; }
+
+/* ══════════════════════════════════════════════════════════════════════════════
+   UTILITY CLASSES
+══════════════════════════════════════════════════════════════════════════════ */
+
+/* Glass card */
+.glass {
+  background: var(--surface-glass);
+  backdrop-filter: blur(16px) saturate(1.6);
+  -webkit-backdrop-filter: blur(16px) saturate(1.6);
+  border: 1px solid var(--border-glass);
+  box-shadow: 0 4px 24px rgba(0,0,0,0.4), inset 0 1px 0 rgba(255,255,255,0.06);
+}
+
+.glass-heavy {
+  background: rgba(15, 16, 20, 0.80);
+  backdrop-filter: blur(32px) saturate(1.8);
+  -webkit-backdrop-filter: blur(32px) saturate(1.8);
+  border: 1px solid var(--border-glass);
+  box-shadow: 0 8px 40px rgba(0,0,0,0.55), inset 0 1px 0 rgba(255,255,255,0.08);
+}
+
+/* Accent fill */
+.bg-accent          { background: var(--accent); }
+.bg-accent-muted    { background: var(--accent-muted); }
+.text-accent        { color: var(--text-accent); }
+.border-accent      { border-color: var(--accent); }
+.shadow-accent      { box-shadow: 0 0 20px var(--accent-glow); }
+.ring-accent        { box-shadow: 0 0 0 2px var(--accent); }
+
+/* Range input theming */
+input[type="range"] {
+  -webkit-appearance: none;
+  appearance: none;
+  background: transparent;
+  cursor: pointer;
+}
+input[type="range"]::-webkit-slider-runnable-track {
+  height: 3px;
+  border-radius: 99px;
+  background: var(--border-glass);
+}
+input[type="range"]::-webkit-slider-thumb {
+  -webkit-appearance: none;
+  appearance: none;
+  width: 12px;
+  height: 12px;
+  border-radius: 50%;
+  background: var(--accent);
+  margin-top: -4.5px;
+  box-shadow: 0 0 6px var(--accent-glow);
+  transition: transform 0.15s, box-shadow 0.15s;
+}
+input[type="range"]::-webkit-slider-thumb:hover {
+  transform: scale(1.25);
+  box-shadow: 0 0 12px var(--accent-glow);
+}
+
+/* Progress track fill via CSS custom property */
+.seek-bar {
+  background: linear-gradient(
+    to right,
+    var(--accent) 0%,
+    var(--accent) var(--progress, 0%),
+    var(--border-glass) var(--progress, 0%),
+    var(--border-glass) 100%
+  ) !important;
+}
+.seek-bar::-webkit-slider-runnable-track {
+  background: transparent !important;
+}
+
+/* Equalizer bars */
+.eq-bar {
+  width: 3px;
+  border-radius: 1px;
+  background: var(--accent);
+  animation: equalizer 1.2s ease-in-out infinite;
+}
+.eq-bar:nth-child(1) { animation-delay: 0s;    height: 8px; }
+.eq-bar:nth-child(2) { animation-delay: 0.2s;  height: 14px; }
+.eq-bar:nth-child(3) { animation-delay: 0.1s;  height: 10px; }
+
+/* ── Animations ────────────────────────────────────────────────────────────── */
+@keyframes fadeIn {
+  from { opacity: 0; transform: translateY(4px); }
+  to   { opacity: 1; transform: translateY(0); }
+}
+
+@keyframes slideUp {
+  from { opacity: 0; transform: translateY(12px); }
+  to   { opacity: 1; transform: translateY(0); }
+}
+
+@keyframes scaleIn {
+  from { opacity: 0; transform: scale(0.96); }
+  to   { opacity: 1; transform: scale(1); }
+}
+
+@keyframes equalizer {
+  0%, 100% { transform: scaleY(0.4); }
+  50%      { transform: scaleY(1);   }
+}
+
+@keyframes spin {
+  to { transform: rotate(360deg); }
+}
+
+/* ══════════════════════════════════════════════════════════════════════════════
+   COMPONENT PATTERNS
+══════════════════════════════════════════════════════════════════════════════ */
+
+.nav-item {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 10px 14px;
+  border-radius: 12px;
+  color: var(--text-secondary);
+  font-weight: 500;
+  font-size: 0.9rem;
+  transition: all 0.2s cubic-bezier(0.4, 0, 0.2, 1);
+  cursor: pointer;
+  margin-bottom: 2px;
+}
+.nav-item:hover {
+  background: var(--accent-muted);
+  color: var(--text-primary);
+  transform: translateX(4px);
+}
+.nav-item.active {
+  background: var(--accent-muted);
+  color: var(--text-accent);
+  box-shadow: inset 3px 0 0 var(--accent);
+}
+
+.music-card {
+  border-radius: 20px;
+  overflow: hidden;
+  background: var(--surface-raised);
+  border: 1px solid var(--border-subtle);
+  transition: 
+    transform 0.4s cubic-bezier(0.2, 1, 0.2, 1),
+    box-shadow 0.4s cubic-bezier(0.2, 1, 0.2, 1),
+    border-color 0.2s ease;
+  cursor: pointer;
+  position: relative;
+  backface-visibility: hidden;
+}
+
+.music-card:hover {
+  transform: translateY(-8px);
+  border-color: rgba(255,255,255,0.15);
+  box-shadow: 
+    0 20px 40px rgba(0,0,0,0.6),
+    0 0 20px var(--accent-glow);
+  z-index: 10;
+}
+
+.music-card.playing {
+  border-color: var(--accent);
+  box-shadow: 
+    0 0 0 1px var(--accent), 
+    0 20px 40px rgba(0,0,0,0.6),
+    0 0 30px var(--accent-glow);
+  background: linear-gradient(to bottom, var(--surface-raised), var(--accent-muted));
+}
+
+.btn-icon {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 8px;
+  border-radius: 10px;
+  border: none;
+  background: transparent;
+  color: var(--text-secondary);
+  cursor: pointer;
+  transition: all 0.2s ease;
+}
+.btn-icon:hover { 
+  background: var(--accent-muted); 
+  color: var(--text-accent);
+  transform: scale(1.1);
+}
+.btn-icon:active { transform: scale(0.9); }
+.btn-icon.active { color: var(--text-accent); }
+
+/* Accent button */
+.btn-accent {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  padding: 10px 20px;
+  border-radius: 12px;
+  border: none;
+  background: var(--accent);
+  color: #000;
+  font-weight: 700;
+  font-size: 0.9rem;
+  cursor: pointer;
+  transition: all 0.2s cubic-bezier(0.4, 0, 0.2, 1);
+  box-shadow: 0 4px 12px var(--accent-glow);
+}
+.btn-accent:hover   { 
+  opacity: 0.9; 
+  transform: translateY(-2px);
+  box-shadow: 0 8px 20px var(--accent-glow);
+}
+.btn-accent:active  { transform: translateY(0) scale(0.96); }
+
+/* Empty state */
+.empty-state {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 16px;
+  padding: 80px 40px;
+  color: var(--text-muted);
+  text-align: center;
+  animation: scaleIn 0.4s ease-out;
+}
+
+/* Toast notification */
+.toast {
+  position: fixed;
+  bottom: calc(var(--player-height) + 24px);
+  right: 24px;
+  padding: 12px 20px;
+  border-radius: 14px;
+  font-size: 0.9rem;
+  font-weight: 600;
+  z-index: 1000;
+  background: var(--surface-overlay);
+  border: 1px solid var(--accent);
+  box-shadow: 0 10px 30px rgba(0,0,0,0.5);
+  animation: slideUp 0.3s cubic-bezier(0.16, 1, 0.3, 1);
+}
+
+/* Page fade */
+.page { animation: fadeIn 0.3s ease-out; }
+
+/* Grid container stability */
+.music-grid {
+  display: grid;
+  gap: 16px;
+  grid-template-columns: repeat(auto-fill, minmax(180px, 1fr));
+  transition: all 0.3s ease;
+}
+
