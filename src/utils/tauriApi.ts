@@ -95,8 +95,9 @@ export async function pickDirectory(): Promise<string | null> {
 
 export function convertFileSrc(filePath: string): string {
   // Use local asset server on port 1422
-  const path = filePath.startsWith("/") ? filePath : `/${filePath}`;
-  return `http://localhost:1422${encodeURI(path)}`;
+  const normalizedPath = filePath.replace(/\\/g, "/");
+  const path = normalizedPath.startsWith("/") ? normalizedPath : `/${normalizedPath}`;
+  return `http://127.0.0.1:1422${encodeURI(path).replace(/#/g, "%23").replace(/\?/g, "%3F")}`;
 }
 
 export function readAudioFile(filePath: string): string {

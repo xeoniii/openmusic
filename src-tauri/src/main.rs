@@ -560,8 +560,13 @@ fn start_asset_server(port: u16) {
         let server = tiny_http::Server::http(format!("127.0.0.1:{}", port)).unwrap();
         for request in server.incoming_requests() {
             let url = request.url();
-            // Decode the path
-            let path_str = percent_decode_str(url).decode_utf8_lossy().to_string();
+            let mut path_str = percent_decode_str(url).decode_utf8_lossy().to_string();
+
+            // On Windows, paths like /C:/Users/... need to be C:/Users/...
+            if cfg!(windows) && path_str.starts_with('/') && path_str.len() > 2 && path_str.chars().nth(2) == Some(':') {
+                path_str = path_str[1..].to_string();
+            }
+
             let path = Path::new(&path_str);
 
             if path.exists() && path.is_file() {

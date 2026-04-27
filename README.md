@@ -67,7 +67,7 @@ curl --proto '=https' --tlsv1.2 -sSf https://sh.rustup.rs | sh
 
 # Tauri system dependencies (Ubuntu / Linux Mint)
 sudo apt install -y \
-  libwebkit2gtk-4.0-dev libssl-dev libgtk-3-dev \
+  libwebkit2gtk-4.1-dev libssl-dev libgtk-3-dev \
   libayatana-appindicator3-dev librsvg2-dev
 ```
 
@@ -86,7 +86,7 @@ npm run tauri dev
 npm run tauri build
 ```
 
-The built AppImage / `.deb` will be in `src-tauri/target/release/bundle/`.
+The built AppImage / `.deb` / `.rpm` will be in `src-tauri/target/release/bundle/`.
 
 ---
 
