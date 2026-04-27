@@ -1,6 +1,6 @@
 [package]
 name = "openmusic"
-version = "0.5.5"
+version = "0.5.6"
 description = "OpenMusic — A modern offline music player"
 authors = ["xeoniii <https://github.com/xeoniii>"]
 license = "GPL-3.0-only"
@@ -25,6 +25,8 @@ tauri-plugin-localhost = "2"
 url = "2.5.8"
 percent-encoding = "2.3.2"
 tiny_http = "0.12.0"
+image = "0.24"
+rayon = "1.8"
 discord-rich-presence = "0.2.4"
 
 [features]

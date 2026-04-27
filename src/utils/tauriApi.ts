@@ -11,7 +11,9 @@ import { invoke } from "@tauri-apps/api/core";
 import type { Track, Playlist, AppPaths, ScanResult } from "../types";
 
 export function convertFileSrc(filePath: string): string {
-  const path = filePath.startsWith("/") ? filePath : `/${filePath}`;
+  // Normalize Windows paths by converting backslashes to forward slashes
+  let path = filePath.replace(/\\/g, "/");
+  if (!path.startsWith("/")) path = "/" + path;
   return `http://127.0.0.1:1422${encodeURI(path)}`;
 }
 

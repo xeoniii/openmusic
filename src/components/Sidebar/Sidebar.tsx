@@ -91,7 +91,7 @@ export function Sidebar() {
         />
         <NavItem
           icon={<PlayCircle size={15} />}
-          label="Player"
+          label="Lyrics"
           view="player"
           active={activeView === "player"}
           onClick={() => setActiveView("player")}

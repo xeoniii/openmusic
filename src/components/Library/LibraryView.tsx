@@ -113,10 +113,11 @@ export function LibraryView() {
       : [...tracks];
 
     list.sort((a, b) => {
-      const av = a[sortKey] ?? "";
-      const bv = b[sortKey] ?? "";
-      const cmp = String(av).localeCompare(String(bv));
-      return sortAsc ? cmp : -cmp;
+      const av = String(a[sortKey] ?? "");
+      const bv = String(b[sortKey] ?? "");
+      const cmp = av.localeCompare(bv, undefined, { numeric: true, sensitivity: "base" });
+      if (cmp !== 0) return sortAsc ? cmp : -cmp;
+      return a.id.localeCompare(b.id);
     });
     return list;
   }, [tracks, localSearch, sortKey, sortAsc]);

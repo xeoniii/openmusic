@@ -33,6 +33,9 @@ use std::time::{SystemTime, UNIX_EPOCH};
 use tiny_http::{Server, Response, Header};
 use url::Url;
 use percent_encoding::percent_decode_str;
+use rayon::prelude::*;
+use std::io::Cursor;
+use image::io::Reader as ImageReader;
 
 
 #[derive(Debug, Serialize, Deserialize, Clone)]
@@ -79,6 +82,8 @@ pub struct AppPaths {
 pub struct DiscordState {
     pub client: Mutex<Option<DiscordIpcClient>>,
 }
+
+static COVERS_CACHE_DIR: Mutex<Option<PathBuf>> = Mutex::new(None);
 
 fn is_audio_file(path: &Path) -> bool {
     match path.extension().and_then(|e| e.to_str()) {
@@ -211,6 +216,10 @@ fn get_app_paths(app_handle: tauri::AppHandle) -> Result<AppPaths, String> {
     fs::create_dir_all(&playlists_dir).map_err(|e| format!("Cannot create playlists dir: {}", e))?;
     fs::create_dir_all(&covers_dir).map_err(|e| format!("Cannot create covers dir: {}", e))?;
 
+    if let Ok(mut lock) = COVERS_CACHE_DIR.lock() {
+        *lock = Some(covers_dir.clone());
+    }
+
     Ok(AppPaths {
         music_dir: music_dir.to_string_lossy().to_string(),
         playlists_dir: playlists_dir.to_string_lossy().to_string(),
@@ -225,23 +234,30 @@ fn scan_music_directory(dir_path: String) -> Result<ScanResult, String> {
         return Err(format!("Directory does not exist: {}", dir_path));
     }
 
-    let mut tracks = Vec::new();
-    let mut errors = Vec::new();
-
-    for entry in WalkDir::new(&root)
+    let entries: Vec<_> = WalkDir::new(&root)
         .follow_links(true)
         .into_iter()
         .filter_map(|e| e.ok())
         .filter(|e| e.file_type().is_file())
-    {
+        .collect();
+
+    let (tracks, errors): (Vec<Track>, Vec<String>) = entries.par_iter().map(|entry| {
         let path = entry.path();
         if is_audio_file(path) {
             match parse_track(path) {
-                Ok(track) => tracks.push(track),
-                Err(e) => errors.push(e),
+                Ok(track) => (Some(track), None),
+                Err(e) => (None, Some(e)),
             }
+        } else {
+            (None, None)
         }
-    }
+    }).collect::<Vec<_>>().into_iter().fold((Vec::new(), Vec::new()), |(mut ts, mut es), (t, e)| {
+        if let Some(track) = t { ts.push(track); }
+        if let Some(err) = e { es.push(err); }
+        (ts, es)
+    });
+
+    let mut tracks = tracks;
 
     tracks.sort_by(|a, b| {
         a.artist
@@ -249,6 +265,7 @@ fn scan_music_directory(dir_path: String) -> Result<ScanResult, String> {
             .then(a.album.cmp(&b.album))
             .then(a.track_number.cmp(&b.track_number))
             .then(a.title.cmp(&b.title))
+            .then(a.id.cmp(&b.id))
     });
 
     let total = tracks.len();
@@ -567,7 +584,14 @@ fn handle_request(request: tiny_http::Request) {
     let query = url.query().unwrap_or("");
     let is_thumb = query.contains("thumb=1");
     
-    let decoded_path = percent_decode_str(path_query).decode_utf8_lossy().to_string();
+    let mut decoded_path = percent_decode_str(path_query).decode_utf8_lossy().to_string();
+    
+    // On Windows, paths like /C:/Users/... need to have the leading slash removed
+    #[cfg(windows)]
+    if decoded_path.starts_with('/') && decoded_path.chars().nth(2) == Some(':') {
+        decoded_path.remove(0);
+    }
+
     let path = Path::new(&decoded_path);
 
     if !path.exists() {
@@ -579,16 +603,56 @@ fn handle_request(request: tiny_http::Request) {
 
     // Handle cover art extraction
     if is_thumb {
-        if let Ok(tagged) = lofty::read_from_path(final_path) {
-            let tag = tagged.primary_tag().or_else(|| tagged.first_tag());
-            if let Some(t) = tag {
-                if let Some(pic) = t.pictures().first() {
-                    let data = pic.data().to_vec();
+        // Generate a cache key based on the file path hash
+        let cache_key = format!("{:x}.jpg", hash_string(&final_path.to_string_lossy()));
+        let mut cached_path = None;
+        if let Ok(lock) = COVERS_CACHE_DIR.lock() {
+            if let Some(dir) = &*lock {
+                cached_path = Some(dir.join(&cache_key));
+            }
+        }
+
+        // Return cached cover if available
+        if let Some(ref cp) = cached_path {
+            if cp.exists() {
+                if let Ok(data) = fs::read(cp) {
                     let mut response = Response::from_data(data);
                     response.add_header(Header::from_bytes(&b"Content-Type"[..], b"image/jpeg").unwrap());
                     response.add_header(Header::from_bytes(&b"Access-Control-Allow-Origin"[..], &b"*"[..]).unwrap());
                     let _ = request.respond(response);
                     return;
+                }
+            }
+        }
+
+        // Extract and compress
+        if let Ok(tagged) = lofty::read_from_path(final_path) {
+            let tag = tagged.primary_tag().or_else(|| tagged.first_tag());
+            if let Some(t) = tag {
+                if let Some(pic) = t.pictures().first() {
+                    let raw_data = pic.data();
+                    
+                    // Compress to 256x256
+                    if let Ok(reader) = ImageReader::new(Cursor::new(raw_data)).with_guessed_format() {
+                        if let Ok(img) = reader.decode() {
+                            let resized = img.thumbnail(256, 256);
+                            let mut buffer = Cursor::new(Vec::new());
+                            if resized.write_to(&mut buffer, image::ImageFormat::Jpeg).is_ok() {
+                                let compressed_data = buffer.into_inner();
+                                
+                                // Cache the result
+                                if let Some(ref cp) = cached_path {
+                                    let _ = fs::write(cp, &compressed_data);
+                                }
+
+                                let mut response = Response::from_data(compressed_data);
+                                response.add_header(Header::from_bytes(&b"Content-Type"[..], b"image/jpeg").unwrap());
+                                response.add_header(Header::from_bytes(&b"Access-Control-Allow-Origin"[..], &b"*"[..]).unwrap());
+                                let _ = request.respond(response);
+                                return;
+                            }
+                        }
+                    }
                 }
             }
         }
@@ -683,5 +747,5 @@ fn main() {
             clear_discord_rpc,
         ])
         .run(tauri::generate_context!())
-        .expect("error while running OpenMusic v0.5.5");
+        .expect("error while running OpenMusic v0.5.6");
 }

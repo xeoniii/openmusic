@@ -202,15 +202,6 @@ export const MusicCard = memo(function MusicCard({
           </span>
         </div>
 
-        {onEditMetadata && hovered && (
-          <button
-            onClick={(e) => { e.stopPropagation(); onEditMetadata(track); }}
-            className="absolute bottom-2 right-2 w-7 h-7 rounded-lg bg-black/60 flex items-center justify-center hover:bg-black/80 transition-colors"
-            title="Edit metadata"
-          >
-            <Pencil size={12} />
-          </button>
-        )}
       </div>
 
       <div className="p-3 space-y-0.5">
