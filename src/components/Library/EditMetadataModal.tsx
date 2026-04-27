@@ -7,10 +7,9 @@ import type { Track } from "../../types";
 interface EditMetadataModalProps {
   track: Track;
   onClose: () => void;
-  onSaved: (updated: Track) => void;
 }
 
-export function EditMetadataModal({ track, onClose, onSaved }: EditMetadataModalProps) {
+export function EditMetadataModal({ track, onClose }: EditMetadataModalProps) {
   const { updateTrack } = useStore();
   const [title, setTitle] = useState(track.title);
   const [artist, setArtist] = useState(track.artist);
@@ -65,14 +64,13 @@ export function EditMetadataModal({ track, onClose, onSaved }: EditMetadataModal
         year: year ? parseInt(year, 10) : track.year,
       };
       updateTrack(updated);
-      onSaved(updated);
       onClose();
     } catch (err) {
       setError(String(err));
     } finally {
       setSaving(false);
     }
-  }, [track, title, artist, album, genre, year, newCover, updateTrack, onSaved, onClose]);
+  }, [track, title, artist, album, genre, year, newCover, updateTrack, onClose]);
 
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 backdrop-blur-sm" onClick={onClose}>

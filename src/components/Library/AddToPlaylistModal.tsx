@@ -1,6 +1,7 @@
-import React, { useRef, useEffect } from "react";
+import React, { useRef, useEffect, useCallback } from "react";
 import { X, PlusCircle } from "lucide-react";
 import { useStore } from "../../store";
+import { useLibrary } from "../../hooks/useLibrary";
 import type { Track } from "../../types";
 
 interface AddToPlaylistModalProps {
@@ -9,7 +10,8 @@ interface AddToPlaylistModalProps {
 }
 
 export function AddToPlaylistModal({ track, onClose }: AddToPlaylistModalProps) {
-  const { playlists, tracks, updatePlaylist } = useStore();
+  const { playlists, updatePlaylist } = useStore();
+  const { updatePlaylistData } = useLibrary();
   const modalRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
@@ -24,7 +26,7 @@ export function AddToPlaylistModal({ track, onClose }: AddToPlaylistModalProps) 
     modalRef.current?.focus();
   }, []);
 
-  const handleAdd = (playlistId: string) => {
+  const handleAdd = useCallback(async (playlistId: string) => {
     const playlist = playlists.find((p) => p.id === playlistId);
     if (!playlist) return;
 
@@ -33,12 +35,14 @@ export function AddToPlaylistModal({ track, onClose }: AddToPlaylistModalProps) 
       return;
     }
 
-    updatePlaylist({
+    const updated = {
       ...playlist,
       trackIds: [...playlist.trackIds, track.id],
-    });
+    };
+    updatePlaylist(updated);
+    await updatePlaylistData(updated);
     onClose();
-  };
+  }, [playlists, track, updatePlaylist, updatePlaylistData, onClose]);
 
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center">

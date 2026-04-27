@@ -1,7 +1,7 @@
 {
   "$schema": "../node_modules/@tauri-apps/cli/schema.json",
   "productName": "OpenMusic",
-  "version": "0.5.4",
+  "version": "0.5.5",
   "identifier": "com.openmusic.player",
   "build": {
     "beforeDevCommand": "npm run dev",
@@ -56,7 +56,7 @@
       }
     ],
     "security": {
-      "csp": "default-src 'self'; media-src 'self' http://127.0.0.1:* http://localhost:* file: http://localhost:1421 http://localhost:1422; img-src 'self' data: blob: http://localhost:1421 http://localhost:1422; style-src 'self' 'unsafe-inline'"
+      "csp": "default-src 'self'; media-src 'self' http://localhost:1422 http://127.0.0.1:1422; img-src 'self' data: blob: http://localhost:1422 http://127.0.0.1:1422"
     }
   }
 }

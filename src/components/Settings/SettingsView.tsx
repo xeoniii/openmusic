@@ -54,14 +54,14 @@ export function SettingsView() {
 
 return (
     <div className="flex flex-col h-full overflow-y-auto">
-      <div className="px-6 py-5 border-b border-border-subtle flex-shrink-0">
-        <h1 className="font-display font-bold text-xl text-text-primary">Settings</h1>
-        <p className="text-text-muted text-sm mt-0.5">
+      <div className="px-8 py-6 border-b border-border-subtle flex-shrink-0">
+        <h1 className="font-display font-bold text-2xl text-text-primary">Settings</h1>
+        <p className="text-text-muted text-sm mt-1">
           Customize OpenMusic to your taste
         </p>
       </div>
 
-      <div className="flex flex-row flex-wrap gap-4 p-6 max-w-4xl">
+      <div className="flex flex-row flex-wrap gap-6 p-8">
 
         {/* ── Accent Color ─────────────────────────────────────────────────────── */}
         <Section icon={<Palette size={16} />} title="Accent Color">
@@ -230,7 +230,7 @@ return (
         {/* ── About ─────────────────────────────────────────────────────────────── */}
         <div className="w-full text-center py-8 mt-4 border-t border-border-subtle">
           <p className="text-xs text-text-muted flex flex-col gap-1">
-            <span className="font-display font-black text-sm text-text-secondary tracking-tight">OpenMusic <span className="text-accent">v0.5.3</span></span>
+            <span className="font-display font-black text-sm text-text-secondary tracking-tight">OpenMusic <span className="text-accent">v0.5.5</span></span>
             <span>Crafted with love for high-quality audio.</span>
             <span className="mt-2 opacity-60">Build ID: {new Date().toISOString().split('T')[0].replace(/-/g, '')}</span>
           </p>

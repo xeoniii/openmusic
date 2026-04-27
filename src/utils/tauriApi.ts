@@ -10,7 +10,10 @@
 import { invoke } from "@tauri-apps/api/core";
 import type { Track, Playlist, AppPaths, ScanResult } from "../types";
 
-// ── Key transform helpers ─────────────────────────────────────────────────────
+export function convertFileSrc(filePath: string): string {
+  const path = filePath.startsWith("/") ? filePath : `/${filePath}`;
+  return `http://127.0.0.1:1422${encodeURI(path)}`;
+}
 
 function toCamel(s: string): string {
   return s.replace(/_([a-z])/g, (_, c) => c.toUpperCase());
@@ -27,8 +30,6 @@ function deepCamel(obj: unknown): unknown {
   }
   return obj;
 }
-
-// ── Public API ────────────────────────────────────────────────────────────────
 
 export async function getAppPaths(): Promise<AppPaths> {
   const raw = await invoke<Record<string, string>>("get_app_paths");
@@ -66,7 +67,6 @@ export async function createPlaylist(
 }
 
 export async function savePlaylist(playlist: Playlist): Promise<void> {
-  // Rust expects snake_case fields
   function toSnake(s: string) {
     return s.replace(/([A-Z])/g, (_: string, c: string) => `_${c.toLowerCase()}`);
   }
@@ -93,17 +93,9 @@ export async function pickDirectory(): Promise<string | null> {
   return result;
 }
 
-export function convertFileSrc(filePath: string): string {
-  // Use local asset server on port 1422
-  const normalizedPath = filePath.replace(/\\/g, "/");
-  const path = normalizedPath.startsWith("/") ? normalizedPath : `/${normalizedPath}`;
-  return `http://127.0.0.1:1422${encodeURI(path).replace(/#/g, "%23").replace(/\?/g, "%3F")}`;
-}
-
 export function readAudioFile(filePath: string): string {
   return convertFileSrc(filePath);
 }
-
 
 export interface TrackMetadata {
   title?: string;
@@ -144,7 +136,7 @@ export async function getCoverArt(filePath: string): Promise<string | null> {
   try {
     const result = await invoke<string | null>("get_cover_art", { filePath });
     if (result) {
-      const url = convertFileSrc(result);
+      const url = convertFileSrc(result) + "?thumb=1";
       if (coverCache.size >= MAX_COVER_CACHE) {
         const firstKey = coverCache.keys().next().value;
         if (firstKey) coverCache.delete(firstKey);

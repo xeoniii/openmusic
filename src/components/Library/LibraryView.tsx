@@ -238,7 +238,6 @@ export function LibraryView() {
         <EditMetadataModal
           track={editTrack}
           onClose={() => setEditTrack(null)}
-          onSaved={() => setEditTrack(null)}
         />
       )}
     </div>
