@@ -13,6 +13,7 @@ export interface Track {
   fileSize: number;
   format: string;
   lyrics?: string;
+  dateAdded: number;
 }
 
 export interface Playlist {

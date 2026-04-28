@@ -41,6 +41,8 @@ export function SettingsView() {
     playlistsDir,
     guiScale,
     setGuiScale,
+    trayEnabled,
+    setTrayEnabled,
   } = useStore();
 
   const { changeMusicDirectory, changePlaylistsDirectory, rescanDirectory } = useLibrary();
@@ -52,7 +54,7 @@ export function SettingsView() {
     setScanning(false);
   };
 
-return (
+  return (
     <div className="flex flex-col h-full overflow-y-auto">
       <div className="px-8 py-6 border-b border-border-subtle flex-shrink-0">
         <h1 className="font-display font-bold text-2xl text-text-primary">Settings</h1>
@@ -81,11 +83,10 @@ return (
                   style={{ background: preset.hex }}
                 />
                 <span
-                  className={`text-[10px] font-medium transition-colors ${
-                    accentColor === preset.id
-                      ? "text-text-primary"
-                      : "text-text-muted group-hover:text-text-secondary"
-                  }`}
+                  className={`text-[10px] font-medium transition-colors ${accentColor === preset.id
+                    ? "text-text-primary"
+                    : "text-text-muted group-hover:text-text-secondary"
+                    }`}
                 >
                   {preset.label.split(" ")[0]}
                 </span>
@@ -124,7 +125,30 @@ return (
             <span className="text-xs text-text-muted w-8 text-right font-mono">
               {Math.round(volume * 100)}%
             </span>
-</div>
+          </div>
+        </Section>
+
+        {/* ── System ───────────────────────────────────────────────────────── */}
+        <Section icon={<FolderOpen size={16} />} title="System">
+          <div className="flex items-center justify-between p-3 rounded-xl bg-surface-overlay border border-border-subtle">
+            <div>
+              <p className="text-sm font-medium text-text-primary">Tray Icon</p>
+              <p className="text-xs text-text-muted">Keep OpenMusic running in the system tray.</p>
+            </div>
+            <label className="relative inline-flex items-center cursor-pointer">
+              <input
+                type="checkbox"
+                className="sr-only peer"
+                checked={trayEnabled}
+                onChange={(e) => {
+                  const val = e.target.checked;
+                  setTrayEnabled(val);
+                  import("../../utils/tauriApi").then(api => api.setTrayEnabled(val));
+                }}
+              />
+              <div className="w-9 h-5 bg-surface-raised peer-focus:outline-none rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-4 after:w-4 after:transition-all peer-checked:bg-accent border border-border-subtle" />
+            </label>
+          </div>
         </Section>
 
         {/* ── Music Folder ─────────────────────────────────────────────────── */}
@@ -214,10 +238,10 @@ return (
         <Section icon={<Info size={16} />} title="Library Info">
           <div className="grid grid-cols-2 gap-3 text-sm">
             {[
-              ["Total Tracks",   tracks.length],
-              ["Artists",        new Set(tracks.map((t) => t.artist)).size],
-              ["Albums",         new Set(tracks.map((t) => t.album)).size],
-              ["Formats",        [...new Set(tracks.map((t) => t.format))].join(", ") || "—"],
+              ["Total Tracks", tracks.length],
+              ["Artists", new Set(tracks.map((t) => t.artist)).size],
+              ["Albums", new Set(tracks.map((t) => t.album)).size],
+              ["Formats", [...new Set(tracks.map((t) => t.format))].join(", ") || "—"],
             ].map(([label, value]) => (
               <div key={String(label)} className="flex flex-col gap-0.5">
                 <span className="text-xs text-text-muted">{label}</span>
@@ -230,8 +254,9 @@ return (
         {/* ── About ─────────────────────────────────────────────────────────────── */}
         <div className="w-full text-center py-8 mt-4 border-t border-border-subtle">
           <p className="text-xs text-text-muted flex flex-col gap-1">
-            <span className="font-display font-black text-sm text-text-secondary tracking-tight">OpenMusic <span className="text-accent">v0.5.6</span></span>
+            <span className="font-display font-black text-sm text-text-secondary tracking-tight">OpenMusic <span className="text-accent">v0.5.7</span></span>
             <span>Crafted with love for high-quality audio.</span>
+            <span>Made by xeoniii.dev</span>
             <span className="mt-2 opacity-60">Build ID: {new Date().toISOString().split('T')[0].replace(/-/g, '')}</span>
           </p>
         </div>

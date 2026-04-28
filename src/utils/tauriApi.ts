@@ -159,11 +159,20 @@ export function clearCoverCache() {
 export async function updateDiscordRpc(
   title: string,
   artist: string,
-  isPlaying: boolean
+  isPlaying: boolean,
+  currentTime: number
 ): Promise<void> {
-  await invoke("update_discord_rpc", { title, artist, isPlaying });
+  await invoke("update_discord_rpc", { title, artist, isPlaying, currentTime });
 }
 
 export async function clearDiscordRpc(): Promise<void> {
   await invoke("clear_discord_rpc");
+}
+
+export async function setTrayEnabled(enabled: boolean): Promise<void> {
+  await invoke("set_tray_enabled", { enabled });
+}
+
+export async function toggleFullscreen(): Promise<void> {
+  await invoke("toggle_fullscreen");
 }

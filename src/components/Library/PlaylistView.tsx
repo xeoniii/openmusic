@@ -64,8 +64,9 @@ export function PlaylistView() {
 
   const handleDelete = async () => {
     if (!confirm(`Delete playlist "${playlist.name}"?`)) return;
-    await removePlaylistData(playlist);
+    const plToDelete = playlist;
     setActiveView("library");
+    await removePlaylistData(plToDelete);
   };
 
   return (

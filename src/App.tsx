@@ -1,7 +1,9 @@
 import React, { useEffect } from "react";
 import { useStore } from "./store";
 import { useLibrary } from "./hooks/useLibrary";
-import { getAppPaths } from "./utils/tauriApi";
+import { getAppPaths, setTrayEnabled, toggleFullscreen } from "./utils/tauriApi";
+import { getCurrentWindow } from "@tauri-apps/api/window";
+import { invoke } from "@tauri-apps/api/core";
 import { Sidebar } from "./components/Sidebar/Sidebar";
 import { PlayerBar } from "./components/Player/PlayerBar";
 import { HomeView } from "./components/Dashboard/HomeView";
@@ -40,6 +42,9 @@ export default function App() {
 
   useEffect(() => {
     async function bootstrap() {
+      // Sync initial tray state
+      setTrayEnabled(useStore.getState().trayEnabled).catch(() => {});
+
       if (!musicDir || !playlistsDir || !coversDir) {
         const paths = await getAppPaths();
         if (!musicDir) setMusicDir(paths.musicDir);
@@ -70,9 +75,21 @@ export default function App() {
         if (currentTrack) setIsPlaying(!isPlaying);
       }
     };
+    const onF11 = (e: KeyboardEvent) => {
+      if (e.key === "F11") {
+        e.preventDefault();
+        toggleFullscreen().catch(() => {});
+      }
+    };
     window.addEventListener("keydown", onKey);
-    return () => window.removeEventListener("keydown", onKey);
+    window.addEventListener("keydown", onF11);
+    return () => {
+      window.removeEventListener("keydown", onKey);
+      window.removeEventListener("keydown", onF11);
+    };
   }, []);
+
+
 
   const showPlayerBar = activeView !== "player";
 

@@ -35,7 +35,11 @@ export function HomeView() {
 
   const [heroCover, setHeroCover] = useState<string | null>(null);
 
-  const recentTracks = useMemo(() => tracks.slice(0, 12), [tracks]);
+  const recentTracks = useMemo(() => {
+    return [...tracks]
+      .sort((a, b) => b.dateAdded - a.dateAdded)
+      .slice(0, 10);
+  }, [tracks]);
 
   const totalDuration = useMemo(
     () => tracks.reduce((acc, t) => acc + t.duration, 0),
@@ -210,14 +214,14 @@ export function HomeView() {
           </button>
         </div>
 
-        <div className="music-grid">
+        <div className="music-list">
           {recentTracks.map((track, i) => (
             <MusicCard
               key={track.id}
               track={track}
-              allTracks={tracks}
+              allTracks={recentTracks}
               trackIndex={i}
-              viewMode="grid"
+              viewMode="list"
             />
           ))}
         </div>

@@ -61,7 +61,7 @@ export function useAudioPlayer() {
   
   useEffect(() => {
     if (currentTrack) {
-      updateDiscordRpc(currentTrack.title, currentTrack.artist, isPlaying).catch(() => {});
+      updateDiscordRpc(currentTrack.title, currentTrack.artist, isPlaying, audio.currentTime).catch(() => {});
     } else {
       clearDiscordRpc().catch(() => {});
     }
@@ -107,6 +107,13 @@ export function useAudioPlayer() {
   const seek = useCallback((time: number) => {
     audio.currentTime = time;
     setCurrentTime(time);
+    
+    // Update Discord RPC so the elapsed time adjusts
+    const state = useStore.getState();
+    const track = state.currentTrack;
+    if (track) {
+      updateDiscordRpc(track.title, track.artist, state.isPlaying, time).catch(() => {});
+    }
   }, []);
 
   const togglePlay = useCallback(() => {

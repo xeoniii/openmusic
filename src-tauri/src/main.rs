@@ -22,12 +22,15 @@ use std::path::{Path, PathBuf};
 use std::fs;
 use serde::{Deserialize, Serialize};
 use tauri::Manager;
+use tauri::tray::{TrayIconBuilder, TrayIconEvent};
+use tauri::menu::{Menu, MenuItem};
 use walkdir::WalkDir;
 use lofty::{AudioFile, TaggedFileExt, Accessor, ItemKey, PictureType, Picture, MimeType, Tag, TagType};
 use base64::{Engine as _, engine::general_purpose};
 use std::hash::{Hash, Hasher};
 use rustc_hash::FxHasher;
 use discord_rich_presence::{DiscordIpc, DiscordIpcClient, activity};
+use std::sync::atomic::{AtomicBool, Ordering};
 use std::sync::Mutex;
 use std::time::{SystemTime, UNIX_EPOCH};
 use tiny_http::{Server, Response, Header};
@@ -54,6 +57,7 @@ pub struct Track {
     pub file_size: u64,
     pub format: String,
     pub lyrics: Option<String>,
+    pub date_added: u64,
 }
 
 #[derive(Debug, Serialize, Deserialize, Clone)]
@@ -81,6 +85,10 @@ pub struct AppPaths {
 
 pub struct DiscordState {
     pub client: Mutex<Option<DiscordIpcClient>>,
+}
+
+pub struct AppState {
+    pub tray_enabled: AtomicBool,
 }
 
 static COVERS_CACHE_DIR: Mutex<Option<PathBuf>> = Mutex::new(None);
@@ -177,6 +185,11 @@ fn parse_track(path: &Path) -> Result<Track, String> {
         )
     };
 
+    let date_added = fs::metadata(path)
+        .and_then(|m| m.modified())
+        .map(|t| t.duration_since(UNIX_EPOCH).unwrap_or_default().as_secs())
+        .unwrap_or_default();
+
     Ok(Track {
         id,
         title,
@@ -192,6 +205,7 @@ fn parse_track(path: &Path) -> Result<Track, String> {
         file_size,
         format,
         lyrics,
+        date_added,
     })
 }
 
@@ -492,22 +506,39 @@ fn save_track_metadata(file_path: String, metadata: TrackMetadata) -> Result<(),
 
 
 #[tauri::command]
+fn set_tray_enabled(
+    state: tauri::State<AppState>,
+    app: tauri::AppHandle,
+    enabled: bool,
+) -> Result<(), String> {
+    state.tray_enabled.store(enabled, Ordering::Relaxed);
+    if let Some(tray) = app.tray_by_id("main_tray") {
+        let _ = tray.set_visible(enabled);
+    }
+    Ok(())
+}
+
+#[tauri::command]
+fn toggle_fullscreen(window: tauri::Window) -> Result<(), String> {
+    let is_fullscreen = window.is_fullscreen().unwrap_or(false);
+    window.set_fullscreen(!is_fullscreen).map_err(|e| e.to_string())
+}
+
+#[tauri::command]
 fn update_discord_rpc(
     state: tauri::State<DiscordState>,
     title: String,
     artist: String,
     is_playing: bool,
+    current_time: f64,
 ) -> Result<(), String> {
     let mut client_lock = state.client.lock().map_err(|e| e.to_string())?;
     
     if client_lock.is_none() {
-        let mut client = DiscordIpcClient::new("1497554583726329938")
-            .map_err(|e| format!("Failed to create Discord client: {}", e))?;
-        
-        if client.connect().is_ok() {
-            *client_lock = Some(client);
-        } else {
-            return Err("Could not connect to Discord".to_string());
+        if let Ok(mut client) = DiscordIpcClient::new("1497554583726329938") {
+            if client.connect().is_ok() {
+                *client_lock = Some(client);
+            }
         }
     }
 
@@ -525,12 +556,17 @@ fn update_discord_rpc(
                     .large_text("OpenMusic"));
 
             if let Ok(now) = SystemTime::now().duration_since(UNIX_EPOCH) {
-                activity = activity.timestamps(activity::Timestamps::new().start(now.as_secs() as i64));
+                let start_time = now.as_secs() as i64 - current_time as i64;
+                activity = activity.timestamps(activity::Timestamps::new().start(start_time));
             }
 
-            client.set_activity(activity).map_err(|e| format!("Failed to set activity: {}", e))?;
+            if client.set_activity(activity).is_err() {
+                *client_lock = None;
+            }
         } else {
-            client.clear_activity().map_err(|e| format!("Failed to clear activity: {}", e))?;
+            if client.clear_activity().is_err() {
+                *client_lock = None;
+            }
         }
     }
 
@@ -541,10 +577,22 @@ fn update_discord_rpc(
 fn clear_discord_rpc(state: tauri::State<DiscordState>) -> Result<(), String> {
     let mut client_lock = state.client.lock().map_err(|e| e.to_string())?;
     if let Some(client) = client_lock.as_mut() {
-        client.clear_activity().map_err(|e| format!("Failed to clear activity: {}", e))?;
+        let _ = client.clear_activity();
+        let _ = client.close();
+        *client_lock = None;
     }
     Ok(())
 }
+
+#[tauri::command]
+fn hide_window(app: tauri::AppHandle) -> Result<(), String> {
+    if let Some(window) = app.get_webview_window("main") {
+        let _ = window.hide();
+    }
+    Ok(())
+}
+
+
 
 fn start_asset_server(_port: u16) {
     std::thread::spawn(move || {
@@ -584,9 +632,10 @@ fn handle_request(request: tiny_http::Request) {
     let query = url.query().unwrap_or("");
     let is_thumb = query.contains("thumb=1");
     
-    let mut decoded_path = percent_decode_str(path_query).decode_utf8_lossy().to_string();
+    let decoded_path = percent_decode_str(path_query).decode_utf8_lossy().to_string();
     
-    // On Windows, paths like /C:/Users/... need to have the leading slash removed
+    #[cfg(windows)]
+    let mut decoded_path = decoded_path;
     #[cfg(windows)]
     if decoded_path.starts_with('/') && decoded_path.chars().nth(2) == Some(':') {
         decoded_path.remove(0);
@@ -731,7 +780,49 @@ fn main() {
         .plugin(tauri_plugin_localhost::Builder::new(1421).build())
         .plugin(tauri_plugin_dialog::init())
         .plugin(tauri_plugin_fs::init())
+        .plugin(tauri_plugin_single_instance::init(|app, _args, _cwd| {
+            if let Some(window) = app.get_webview_window("main") {
+                let _ = window.show();
+                let _ = window.set_focus();
+            }
+        }))
         .manage(DiscordState { client: Mutex::new(None) })
+        .manage(AppState { tray_enabled: AtomicBool::new(true) })
+        .setup(|app| {
+            let quit_i = MenuItem::with_id(app, "quit", "Quit", true, None::<&str>).unwrap();
+            let show_i = MenuItem::with_id(app, "show", "Show OpenMusic", true, None::<&str>).unwrap();
+            let menu = Menu::with_items(app, &[&show_i, &quit_i]).unwrap();
+            let icon = app.default_window_icon().unwrap().clone();
+            
+            let tray = TrayIconBuilder::with_id("main_tray")
+                .icon(icon)
+                .menu(&menu)
+                .show_menu_on_left_click(false)
+                .on_menu_event(|app, event| {
+                    if event.id().as_ref() == "quit" {
+                        app.exit(0);
+                    } else if event.id().as_ref() == "show" {
+                        if let Some(window) = app.get_webview_window("main") {
+                            let _ = window.show();
+                            let _ = window.set_focus();
+                        }
+                    }
+                })
+                .on_tray_icon_event(|tray, event| {
+                    if let TrayIconEvent::Click { .. } = event {
+                        let app = tray.app_handle();
+                        if let Some(window) = app.get_webview_window("main") {
+                            let _ = window.show();
+                            let _ = window.set_focus();
+                        }
+                    }
+                })
+                .build(app)
+                .unwrap();
+                
+            let _ = tray.set_visible(true); // default to true
+            Ok(())
+        })
         .invoke_handler(tauri::generate_handler![
             get_app_paths,
             scan_music_directory,
@@ -745,7 +836,19 @@ fn main() {
             save_track_metadata,
             update_discord_rpc,
             clear_discord_rpc,
+            set_tray_enabled,
+            hide_window,
+            toggle_fullscreen,
         ])
+        .on_window_event(|window, event| {
+            if let tauri::WindowEvent::CloseRequested { api, .. } = event {
+                let app_state = window.state::<AppState>();
+                if app_state.tray_enabled.load(Ordering::Relaxed) {
+                    api.prevent_close();
+                    let _ = window.hide();
+                }
+            }
+        })
         .run(tauri::generate_context!())
-        .expect("error while running OpenMusic v0.5.6");
+        .expect("error while running OpenMusic v0.5.7");
 }

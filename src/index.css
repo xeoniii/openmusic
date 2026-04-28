@@ -369,3 +369,9 @@ input[type="range"]::-webkit-slider-thumb:hover {
   transition: all 0.3s ease;
 }
 
+.music-list {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+

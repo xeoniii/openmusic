@@ -69,6 +69,7 @@ interface UISlice {
   repeatMode: "off" | "one" | "all";
   shuffleEnabled: boolean;
   guiScale: number;
+  trayEnabled: boolean;
 
   setActiveView: (v: ViewId) => void;
   setActivePlaylist: (id: string | null) => void;
@@ -78,6 +79,7 @@ interface UISlice {
   setRepeatMode: (m: "off" | "one" | "all") => void;
   toggleShuffle: () => void;
   setGuiScale: (s: number) => void;
+  setTrayEnabled: (t: boolean) => void;
 }
 
 // ── Combined Store ────────────────────────────────────────────────────────────
@@ -186,6 +188,7 @@ export const useStore = create<Store>()(
       repeatMode: "off",
       shuffleEnabled: false,
       guiScale: 1.15,
+      trayEnabled: true,
 
       setActiveView: (v) => set({ activeView: v, activePlaylistId: null }),
       setActivePlaylist: (id) =>
@@ -200,6 +203,7 @@ export const useStore = create<Store>()(
       toggleShuffle: () =>
         set((s) => ({ shuffleEnabled: !s.shuffleEnabled })),
       setGuiScale: (s) => set({ guiScale: s }),
+      setTrayEnabled: (t) => set({ trayEnabled: t }),
     }),
     {
       name: "openmusic-storage",
@@ -213,6 +217,7 @@ export const useStore = create<Store>()(
         playlistsDir: s.playlistsDir,
         coversDir: s.coversDir,
         guiScale: s.guiScale,
+        trayEnabled: s.trayEnabled,
       }),
     }
   )
