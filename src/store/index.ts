@@ -70,6 +70,7 @@ interface UISlice {
   shuffleEnabled: boolean;
   guiScale: number;
   trayEnabled: boolean;
+  lastVolume: number;
 
   setActiveView: (v: ViewId) => void;
   setActivePlaylist: (id: string | null) => void;
@@ -80,6 +81,7 @@ interface UISlice {
   toggleShuffle: () => void;
   setGuiScale: (s: number) => void;
   setTrayEnabled: (t: boolean) => void;
+  toggleMute: () => void;
 }
 
 // ── Combined Store ────────────────────────────────────────────────────────────
@@ -136,7 +138,7 @@ export const useStore = create<Store>()(
       },
 
       playPrev: () => {
-        const { queue, queueIndex, currentTime } = get();
+        const { queue, queueIndex, currentTime, isPlaying } = get();
         if (!queue.length) return;
         // If past 3s, restart; else go back
         if (currentTime > 3) {
@@ -144,7 +146,12 @@ export const useStore = create<Store>()(
           return;
         }
         const prev = Math.max(0, queueIndex - 1);
-        set({ queueIndex: prev, currentTrack: queue[prev], currentTime: 0 });
+        set({
+          queueIndex: prev,
+          currentTrack: queue[prev],
+          currentTime: 0,
+          isPlaying: isPlaying, // Keep current play state
+        });
       },
 
       // ── Library ─────────────────────────────────────────────────────────────
@@ -204,6 +211,15 @@ export const useStore = create<Store>()(
         set((s) => ({ shuffleEnabled: !s.shuffleEnabled })),
       setGuiScale: (s) => set({ guiScale: s }),
       setTrayEnabled: (t) => set({ trayEnabled: t }),
+      lastVolume: 0.8,
+      toggleMute: () => {
+        const { volume, lastVolume } = get();
+        if (volume > 0) {
+          set({ lastVolume: volume, volume: 0 });
+        } else {
+          set({ volume: lastVolume > 0 ? lastVolume : 0.7 });
+        }
+      },
     }),
     {
       name: "openmusic-storage",

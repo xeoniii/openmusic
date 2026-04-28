@@ -22,7 +22,7 @@ use std::path::{Path, PathBuf};
 use std::fs;
 use serde::{Deserialize, Serialize};
 use tauri::Manager;
-use tauri::tray::{TrayIconBuilder, TrayIconEvent};
+use tauri::tray::{TrayIconBuilder, TrayIconEvent, MouseButton};
 use tauri::menu::{Menu, MenuItem};
 use walkdir::WalkDir;
 use lofty::{AudioFile, TaggedFileExt, Accessor, ItemKey, PictureType, Picture, MimeType, Tag, TagType};
@@ -217,14 +217,16 @@ fn stem_from_path(path: &Path) -> String {
 
 #[tauri::command]
 fn get_app_paths(app_handle: tauri::AppHandle) -> Result<AppPaths, String> {
-    let base = app_handle
-        .path()
-        .app_data_dir()
-        .map_err(|e| e.to_string())?;
+    let music_home = app_handle.path().audio_dir().map_err(|e| e.to_string())?;
+    let base = music_home.join("OpenMusic");
 
-    let music_dir = base.join("music");
-    let playlists_dir = base.join("playlists");
-    let covers_dir = base.join("covers");
+    let music_dir = base.join("Music");
+    let playlists_dir = base.join("Playlists");
+    let covers_dir = app_handle
+        .path()
+        .app_cache_dir()
+        .map_err(|e| e.to_string())?
+        .join("covers");
 
     fs::create_dir_all(&music_dir).map_err(|e| format!("Cannot create music dir: {}", e))?;
     fs::create_dir_all(&playlists_dir).map_err(|e| format!("Cannot create playlists dir: {}", e))?;
@@ -239,6 +241,33 @@ fn get_app_paths(app_handle: tauri::AppHandle) -> Result<AppPaths, String> {
         playlists_dir: playlists_dir.to_string_lossy().to_string(),
         covers_dir: covers_dir.to_string_lossy().to_string(),
     })
+}
+
+#[tauri::command]
+fn import_files(sources: Vec<String>, target_dir: String) -> Result<u32, String> {
+    let target = Path::new(&target_dir);
+    if !target.exists() {
+        fs::create_dir_all(target).map_err(|e| e.to_string())?;
+    }
+
+    let mut imported = 0;
+    for src_path in sources {
+        let src = Path::new(&src_path);
+        if src.is_file() {
+            if let Some(file_name) = src.file_name() {
+                let dest = target.join(file_name);
+                // Don't overwrite if it exists to be safe
+                if !dest.exists() {
+                    if let Err(e) = fs::copy(src, dest) {
+                        eprintln!("Failed to copy {}: {}", src_path, e);
+                    } else {
+                        imported += 1;
+                    }
+                }
+            }
+        }
+    }
+    Ok(imported)
 }
 
 #[tauri::command]
@@ -809,11 +838,13 @@ fn main() {
                     }
                 })
                 .on_tray_icon_event(|tray, event| {
-                    if let TrayIconEvent::Click { .. } = event {
-                        let app = tray.app_handle();
-                        if let Some(window) = app.get_webview_window("main") {
-                            let _ = window.show();
-                            let _ = window.set_focus();
+                    if let TrayIconEvent::Click { button, .. } = event {
+                        if button == MouseButton::Left {
+                            let app = tray.app_handle();
+                            if let Some(window) = app.get_webview_window("main") {
+                                let _ = window.show();
+                                let _ = window.set_focus();
+                            }
                         }
                     }
                 })
@@ -839,6 +870,7 @@ fn main() {
             set_tray_enabled,
             hide_window,
             toggle_fullscreen,
+            import_files,
         ])
         .on_window_event(|window, event| {
             if let tauri::WindowEvent::CloseRequested { api, .. } = event {
@@ -850,5 +882,5 @@ fn main() {
             }
         })
         .run(tauri::generate_context!())
-        .expect("error while running OpenMusic v0.5.7");
+        .expect("error while running OpenMusic v0.5.8");
 }

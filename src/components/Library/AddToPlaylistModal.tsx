@@ -5,11 +5,12 @@ import { useLibrary } from "../../hooks/useLibrary";
 import type { Track } from "../../types";
 
 interface AddToPlaylistModalProps {
-  track: Track;
+  track?: Track;
+  tracks?: Track[];
   onClose: () => void;
 }
 
-export function AddToPlaylistModal({ track, onClose }: AddToPlaylistModalProps) {
+export function AddToPlaylistModal({ track, tracks, onClose }: AddToPlaylistModalProps) {
   const { playlists, updatePlaylist } = useStore();
   const { updatePlaylistData } = useLibrary();
   const modalRef = useRef<HTMLDivElement>(null);
@@ -30,19 +31,24 @@ export function AddToPlaylistModal({ track, onClose }: AddToPlaylistModalProps) 
     const playlist = playlists.find((p) => p.id === playlistId);
     if (!playlist) return;
 
-    if (playlist.trackIds.includes(track.id)) {
+    const tracksToAdd = track ? [track] : (tracks || []);
+    const newTrackIds = tracksToAdd
+      .map((t: Track) => t.id)
+      .filter((id: string) => !playlist.trackIds.includes(id));
+
+    if (newTrackIds.length === 0) {
       onClose();
       return;
     }
 
     const updated = {
       ...playlist,
-      trackIds: [...playlist.trackIds, track.id],
+      trackIds: [...playlist.trackIds, ...newTrackIds],
     };
     updatePlaylist(updated);
     await updatePlaylistData(updated);
     onClose();
-  }, [playlists, track, updatePlaylist, updatePlaylistData, onClose]);
+  }, [playlists, track, tracks, updatePlaylist, updatePlaylistData, onClose]);
 
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center">
@@ -55,7 +61,9 @@ export function AddToPlaylistModal({ track, onClose }: AddToPlaylistModalProps) 
         <div className="flex items-center justify-between px-4 py-3 border-b border-border-subtle">
           <div>
             <h3 className="text-sm font-semibold text-text-primary">Add to Playlist</h3>
-            <p className="text-xs text-text-muted truncate max-w-56 mt-0.5">{track.title}</p>
+            <p className="text-xs text-text-muted truncate max-w-56 mt-0.5">
+              {track ? track.title : `${tracks?.length || 0} tracks selected`}
+            </p>
           </div>
           <button onClick={onClose} className="btn-icon opacity-60 hover:opacity-100">
             <X size={16} />
@@ -67,16 +75,13 @@ export function AddToPlaylistModal({ track, onClose }: AddToPlaylistModalProps) 
             <p className="text-sm text-text-muted text-center py-4">No playlists yet</p>
           ) : (
             playlists.map((playlist) => {
-              const alreadyAdded = playlist.trackIds.includes(track.id);
-              return (
-                <button
-                  key={playlist.id}
-                  onClick={() => handleAdd(playlist.id)}
-                  disabled={alreadyAdded}
-                  className={`w-full flex items-center gap-3 px-4 py-2.5 text-left transition-colors hover:bg-surface-overlay ${
-                    alreadyAdded ? "opacity-50 cursor-not-allowed" : ""
-                  }`}
-                >
+                const alreadyAdded = track ? playlist.trackIds.includes(track.id) : false;
+                return (
+                  <button
+                    key={playlist.id}
+                    onClick={() => handleAdd(playlist.id)}
+                    className={`w-full flex items-center gap-3 px-4 py-2.5 text-left transition-colors hover:bg-surface-overlay`}
+                  >
                   <div className="w-8 h-8 rounded-lg bg-accent-muted flex items-center justify-center flex-shrink-0">
                     <PlusCircle size={14} className="text-accent" />
                   </div>

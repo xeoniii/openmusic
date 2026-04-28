@@ -176,3 +176,7 @@ export async function setTrayEnabled(enabled: boolean): Promise<void> {
 export async function toggleFullscreen(): Promise<void> {
   await invoke("toggle_fullscreen");
 }
+
+export async function importFiles(sources: string[], targetDir: string): Promise<number> {
+  return await invoke("import_files", { sources, targetDir });
+}

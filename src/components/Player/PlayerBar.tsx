@@ -36,6 +36,7 @@ export function PlayerBar() {
     toggleShuffle,
     playNext,
     playPrev,
+    toggleMute,
   } = useStore();
 
   const { seek, togglePlay } = useAudioPlayer();
@@ -179,7 +180,7 @@ return (
         style={{ width: 140 }}
       >
         <button
-          onClick={() => setVolume(volume === 0 ? 0.7 : 0)}
+          onClick={toggleMute}
           className="btn-icon flex-shrink-0"
           title={volume === 0 ? "Unmute" : "Mute"}
         >

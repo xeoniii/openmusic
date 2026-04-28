@@ -30,30 +30,37 @@ export function useAudioPlayer() {
     }
 
     const loadId = ++loadAbortRef.current;
-
+    
     try {
       const fileUrl = readAudioFile(currentTrack.filePath);
-      console.log("DEBUG: Path =", currentTrack.filePath);
-      console.log("DEBUG: URL =", fileUrl);
       
+      // Stop current playback before switching
+      audio.pause();
       audio.src = fileUrl;
+      audio.currentTime = 0;
       audio.load();
+
       if (isPlaying) {
-        audio.play().catch(() => {});
+        audio.play().catch(err => {
+          console.warn("Autoplay failed or was interrupted:", err);
+        });
       }
     } catch (err) {
       console.error("Failed to load track:", err);
     }
   }, [currentTrack?.id]);
 
+  // Handle play/pause state independently of track changes
   useEffect(() => {
     if (!currentTrack) return;
     if (isPlaying) {
-      audio.play().catch(() => {});
+      if (audio.paused) {
+        audio.play().catch(() => {});
+      }
     } else {
       audio.pause();
     }
-  }, [isPlaying, currentTrack?.id]);
+  }, [isPlaying]);
 
   useEffect(() => {
     audio.volume = volume;

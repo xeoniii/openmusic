@@ -1,8 +1,10 @@
 import React, { useMemo, useState, useCallback, useRef, useEffect, memo } from "react";
 import {
   Search, LayoutGrid, List, SlidersHorizontal,
-  Music2, RefreshCw,
+  Music2, RefreshCw, Plus, PlusCircle
 } from "lucide-react";
+import { open } from "@tauri-apps/plugin-dialog";
+import { importFiles } from "../../utils/tauriApi";
 import { useStore } from "../../store";
 import { MusicCard } from "../Dashboard/MusicCard";
 import { useLibrary } from "../../hooks/useLibrary";
@@ -73,6 +75,7 @@ export function LibraryView() {
   const [sortKey, setSortKey] = useState<SortKey>("title");
   const [sortAsc, setSortAsc] = useState(true);
   const [addTrack, setAddTrack] = useState<Track | null>(null);
+  const [addTracks, setAddTracks] = useState<Track[] | null>(null);
   const [editTrack, setEditTrack] = useState<Track | null>(null);
 
   const [localSearch, setLocalSearch] = useState(searchQuery);
@@ -100,6 +103,25 @@ export function LibraryView() {
   const handleEditMetadata = useCallback((track: Track) => {
     setEditTrack(track);
   }, []);
+
+  const handleImport = async () => {
+    if (!musicDir) return;
+    try {
+      const selected = await open({
+        multiple: true,
+        filters: [{ name: 'Music', extensions: ['mp3', 'flac', 'ogg', 'wav', 'm4a', 'aac', 'opus', 'wma', 'aiff'] }]
+      });
+
+      if (selected && Array.isArray(selected) && selected.length > 0) {
+        const count = await importFiles(selected, musicDir);
+        if (count > 0) {
+          rescanDirectory();
+        }
+      }
+    } catch (err) {
+      console.error("Import error:", err);
+    }
+  };
 
   const filtered = useMemo(() => {
     const q = localSearch.toLowerCase();
@@ -202,6 +224,28 @@ export function LibraryView() {
         >
           <RefreshCw size={15} className={isScanning ? "animate-spin text-accent" : ""} />
         </button>
+
+        {/* Import */}
+        <button
+          onClick={handleImport}
+          className="btn-accent h-10 px-4"
+          title="Import music to library"
+        >
+          <Plus size={15} />
+          <span>Import</span>
+        </button>
+
+        {/* Bulk Add */}
+        {filtered.length > 0 && (
+          <button
+            onClick={() => setAddTracks(filtered)}
+            className="btn-accent bg-accent-muted h-10 px-4 text-accent border-accent/20"
+            title="Add all filtered tracks to a playlist"
+          >
+            <PlusCircle size={15} />
+            <span>Add All</span>
+          </button>
+        )}
       </div>
 
       {/* Track count */}
@@ -235,6 +279,13 @@ export function LibraryView() {
           onClose={() => setAddTrack(null)}
         />
       )}
+      {addTracks && (
+        <AddToPlaylistModal
+          tracks={addTracks}
+          onClose={() => setAddTracks(null)}
+        />
+      )}
+
       {editTrack && (
         <EditMetadataModal
           track={editTrack}
