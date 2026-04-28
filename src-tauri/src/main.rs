@@ -64,7 +64,7 @@ pub struct Track {
 pub struct Playlist {
     pub id: String,
     pub name: String,
-    pub folder_path: String,
+    pub file_path: String,
     pub track_ids: Vec<String>,
     pub created_at: u64,
 }
@@ -123,7 +123,6 @@ fn parse_track(path: &Path) -> Result<Track, String> {
         .to_uppercase();
 
     let file_size = fs::metadata(path).map(|m| m.len()).unwrap_or(0);
-    let id = format!("{:x}", hash_string(&file_path));
 
     let tagged = lofty::read_from_path(path)
         .map_err(|e| format!("lofty error on {}: {}", file_path, e))?;
@@ -189,6 +188,14 @@ fn parse_track(path: &Path) -> Result<Track, String> {
         .and_then(|m| m.modified())
         .map(|t| t.duration_since(UNIX_EPOCH).unwrap_or_default().as_secs())
         .unwrap_or_default();
+
+    let id_seed = if title != "Unknown Title" || artist != "Unknown Artist" {
+        format!("{}|{}|{}|{:.0}", title, artist, album, duration)
+    } else {
+        // Fallback to filename for unknown tracks to avoid collisions
+        file_name.clone()
+    };
+    let id = format!("{:x}", hash_string(&id_seed));
 
     Ok(Track {
         id,
@@ -335,13 +342,11 @@ fn list_playlists(playlists_dir: String) -> Result<Vec<Playlist>, String> {
 
     for entry in fs::read_dir(&root).map_err(|e| e.to_string())?.filter_map(|e| e.ok()) {
         let path = entry.path();
-        if path.is_dir() {
-            let manifest_path = path.join("playlist.json");
-            if manifest_path.exists() {
-                if let Ok(content) = fs::read_to_string(&manifest_path) {
-                    if let Ok(pl) = serde_json::from_str::<Playlist>(&content) {
-                        playlists.push(pl);
-                    }
+        if path.is_file() && path.extension().and_then(|s| s.to_str()) == Some("json") {
+            if let Ok(content) = fs::read_to_string(&path) {
+                if let Ok(mut pl) = serde_json::from_str::<Playlist>(&content) {
+                    pl.file_path = path.to_string_lossy().to_string();
+                    playlists.push(pl);
                 }
             }
         }
@@ -362,47 +367,65 @@ fn create_playlist(playlists_dir: String, name: String) -> Result<Playlist, Stri
 
     let id = format!("{:x}", hash_string(&format!("{}{}", name, created_at)));
 
-    let folder_name: String = name
+    let safe_name: String = name
         .chars()
         .map(|c| if c.is_alphanumeric() || c == ' ' || c == '-' { c } else { '_' })
         .collect();
-    let folder_name = folder_name.trim().to_string();
+    let safe_name = safe_name.trim().to_string();
 
-    let folder_path = PathBuf::from(&playlists_dir).join(&folder_name);
-    fs::create_dir_all(&folder_path).map_err(|e| format!("Cannot create playlist folder: {}", e))?;
-
+    let file_path = PathBuf::from(&playlists_dir).join(format!("{}.json", safe_name));
+    
     let playlist = Playlist {
         id,
         name,
-        folder_path: folder_path.to_string_lossy().to_string(),
+        file_path: file_path.to_string_lossy().to_string(),
         track_ids: vec![],
         created_at,
     };
 
     let manifest = serde_json::to_string_pretty(&playlist).map_err(|e| e.to_string())?;
-
-    fs::write(folder_path.join("playlist.json"), manifest)
-        .map_err(|e| e.to_string())?;
+    fs::write(&file_path, manifest).map_err(|e| e.to_string())?;
 
     Ok(playlist)
 }
 
 #[tauri::command]
 fn save_playlist(playlist: Playlist) -> Result<(), String> {
-    let folder = PathBuf::from(&playlist.folder_path);
-    fs::create_dir_all(&folder).map_err(|e| e.to_string())?;
-
+    let path = PathBuf::from(&playlist.file_path);
     let manifest = serde_json::to_string_pretty(&playlist).map_err(|e| e.to_string())?;
-
-    fs::write(folder.join("playlist.json"), manifest)
-        .map_err(|e| e.to_string())?;
-
+    fs::write(path, manifest).map_err(|e| e.to_string())?;
     Ok(())
 }
 
 #[tauri::command]
-fn delete_playlist(folder_path: String) -> Result<(), String> {
-    fs::remove_dir_all(&folder_path).map_err(|e| e.to_string())
+fn delete_playlist(file_path: String) -> Result<(), String> {
+    let path = PathBuf::from(&file_path);
+    if path.exists() {
+        fs::remove_file(path).map_err(|e| e.to_string())?;
+    }
+    Ok(())
+}
+
+#[tauri::command]
+fn import_playlist(playlists_dir: String, source_path: String) -> Result<Playlist, String> {
+    let source = PathBuf::from(&source_path);
+    let content = fs::read_to_string(&source).map_err(|e| format!("Cannot read source: {}", e))?;
+    let mut pl = serde_json::from_str::<Playlist>(&content).map_err(|e| format!("Invalid playlist JSON: {}", e))?;
+
+    let safe_name: String = pl.name
+        .chars()
+        .map(|c| if c.is_alphanumeric() || c == ' ' || c == '-' { c } else { '_' })
+        .collect();
+    let safe_name = safe_name.trim().to_string();
+
+    let target_path = PathBuf::from(&playlists_dir).join(format!("{}.json", safe_name));
+    
+    pl.file_path = target_path.to_string_lossy().to_string();
+    
+    let manifest = serde_json::to_string_pretty(&pl).map_err(|e| e.to_string())?;
+    fs::write(&target_path, manifest).map_err(|e| e.to_string())?;
+
+    Ok(pl)
 }
 
 #[tauri::command]
@@ -871,6 +894,7 @@ fn main() {
             hide_window,
             toggle_fullscreen,
             import_files,
+            import_playlist,
         ])
         .on_window_event(|window, event| {
             if let tauri::WindowEvent::CloseRequested { api, .. } = event {
@@ -882,5 +906,5 @@ fn main() {
             }
         })
         .run(tauri::generate_context!())
-        .expect("error while running OpenMusic v0.5.8");
+        .expect("error while running OpenMusic v0.5.9");
 }

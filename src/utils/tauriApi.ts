@@ -86,8 +86,16 @@ export async function savePlaylist(playlist: Playlist): Promise<void> {
   await invoke("save_playlist", { playlist: deepSnake(playlist) });
 }
 
-export async function deletePlaylist(folderPath: string): Promise<void> {
-  await invoke("delete_playlist", { folderPath });
+export async function deletePlaylist(filePath: string): Promise<void> {
+  await invoke("delete_playlist", { filePath });
+}
+
+export async function importPlaylist(playlistsDir: string, sourcePath: string): Promise<Playlist> {
+  const raw = await invoke<Record<string, unknown>>("import_playlist", {
+    playlistsDir,
+    sourcePath,
+  });
+  return deepCamel(raw) as Playlist;
 }
 
 export async function pickDirectory(): Promise<string | null> {

@@ -19,7 +19,7 @@ export interface Track {
 export interface Playlist {
   id: string;
   name: string;
-  folderPath: string;
+  filePath: string;
   trackIds: string[];
   createdAt: number;
 }

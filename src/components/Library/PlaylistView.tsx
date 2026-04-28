@@ -1,12 +1,13 @@
 import React, { useMemo, useState, useCallback } from "react";
 import {
-  Play, Shuffle, Trash2, Music2, ListMusic, MinusCircle,
+  Play, Shuffle, Trash2, Music2, ListMusic, MinusCircle, PlusCircle,
 } from "lucide-react";
 import { useStore } from "../../store";
 import { MusicCard } from "../Dashboard/MusicCard";
 import { useLibrary } from "../../hooks/useLibrary";
 import { formatDuration, pluralize, shuffleArray } from "../../utils/helpers";
 import { AddToPlaylistModal } from "./AddToPlaylistModal";
+import { ManagePlaylistTracksModal } from "./ManagePlaylistTracksModal";
 import type { Track } from "../../types";
 
 export function PlaylistView() {
@@ -22,6 +23,7 @@ export function PlaylistView() {
   const { removePlaylistData, removeTrackFromPlaylist } = useLibrary();
 
   const [addTrack, setAddTrack] = useState<Track | null>(null);
+  const [showManageTracks, setShowManageTracks] = useState(false);
 
   const playlist = useMemo(
     () => playlists.find((p) => p.id === activePlaylistId),
@@ -31,7 +33,7 @@ export function PlaylistView() {
   const playlistTracks = useMemo(() => {
     if (!playlist) return [];
     const trackMap = new Map(tracks.map((t) => [t.id, t]));
-    return playlist.trackIds
+    return (playlist.trackIds || [])
       .map((id) => trackMap.get(id))
       .filter(Boolean) as typeof tracks;
   }, [playlist, tracks]);
@@ -112,6 +114,14 @@ export function PlaylistView() {
               Play
             </button>
             <button
+              onClick={() => setShowManageTracks(true)}
+              className="btn-accent bg-accent-muted text-accent border-accent/20"
+              title="Add songs to this playlist"
+            >
+              <PlusCircle size={14} />
+              Add
+            </button>
+            <button
               onClick={handleShuffle}
               disabled={!playlistTracks.length}
               className="btn-icon"
@@ -168,6 +178,12 @@ export function PlaylistView() {
         <AddToPlaylistModal
           track={addTrack}
           onClose={() => setAddTrack(null)}
+        />
+      )}
+      {showManageTracks && (
+        <ManagePlaylistTracksModal
+          playlist={playlist}
+          onClose={() => setShowManageTracks(false)}
         />
       )}
     </div>

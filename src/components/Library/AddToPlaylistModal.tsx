@@ -34,7 +34,7 @@ export function AddToPlaylistModal({ track, tracks, onClose }: AddToPlaylistModa
     const tracksToAdd = track ? [track] : (tracks || []);
     const newTrackIds = tracksToAdd
       .map((t: Track) => t.id)
-      .filter((id: string) => !playlist.trackIds.includes(id));
+      .filter(id => !(playlist.trackIds || []).includes(id));
 
     if (newTrackIds.length === 0) {
       onClose();
@@ -43,7 +43,7 @@ export function AddToPlaylistModal({ track, tracks, onClose }: AddToPlaylistModa
 
     const updated = {
       ...playlist,
-      trackIds: [...playlist.trackIds, ...newTrackIds],
+      trackIds: [...(playlist.trackIds || []), ...newTrackIds],
     };
     updatePlaylist(updated);
     await updatePlaylistData(updated);
@@ -75,7 +75,7 @@ export function AddToPlaylistModal({ track, tracks, onClose }: AddToPlaylistModa
             <p className="text-sm text-text-muted text-center py-4">No playlists yet</p>
           ) : (
             playlists.map((playlist) => {
-                const alreadyAdded = track ? playlist.trackIds.includes(track.id) : false;
+                const alreadyAdded = track ? (playlist.trackIds || []).includes(track.id) : false;
                 return (
                   <button
                     key={playlist.id}
@@ -90,7 +90,7 @@ export function AddToPlaylistModal({ track, tracks, onClose }: AddToPlaylistModa
                       {playlist.name}
                     </p>
                     <p className="text-xs text-text-muted">
-                      {alreadyAdded ? "Already in playlist" : `${playlist.trackIds.length} tracks`}
+                      {alreadyAdded ? "Already in playlist" : `${(playlist.trackIds || []).length} tracks`}
                     </p>
                   </div>
                 </button>

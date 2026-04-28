@@ -67,11 +67,10 @@ const GridContent = memo(function GridContent({
 });
 
 export function LibraryView() {
-  const { tracks, isScanning, searchQuery, setSearchQuery, musicDir } =
+  const { tracks, isScanning, searchQuery, setSearchQuery, musicDir, libraryViewMode, setLibraryViewMode } =
     useStore();
   const { rescanDirectory } = useLibrary();
 
-  const [viewMode, setViewMode] = useState<"grid" | "list">("list");
   const [sortKey, setSortKey] = useState<SortKey>("title");
   const [sortAsc, setSortAsc] = useState(true);
   const [addTrack, setAddTrack] = useState<Track | null>(null);
@@ -200,15 +199,15 @@ export function LibraryView() {
         {/* View toggle */}
         <div className="flex items-center gap-1 bg-surface-raised border border-border-subtle rounded-xl p-1">
           <button
-            onClick={() => setViewMode("list")}
-            className={`btn-icon ${viewMode === "list" ? "bg-accent-muted text-accent" : ""}`}
+            onClick={() => setLibraryViewMode("list")}
+            className={`btn-icon ${libraryViewMode === "list" ? "bg-accent-muted text-accent" : ""}`}
             title="List view"
           >
             <List size={15} />
           </button>
           <button
-            onClick={() => setViewMode("grid")}
-            className={`btn-icon ${viewMode === "grid" ? "bg-accent-muted text-accent" : ""}`}
+            onClick={() => setLibraryViewMode("grid")}
+            className={`btn-icon ${libraryViewMode === "grid" ? "bg-accent-muted text-accent" : ""}`}
             title="Grid view"
           >
             <LayoutGrid size={15} />
@@ -235,17 +234,7 @@ export function LibraryView() {
           <span>Import</span>
         </button>
 
-        {/* Bulk Add */}
-        {filtered.length > 0 && (
-          <button
-            onClick={() => setAddTracks(filtered)}
-            className="btn-accent bg-accent-muted h-10 px-4 text-accent border-accent/20"
-            title="Add all filtered tracks to a playlist"
-          >
-            <PlusCircle size={15} />
-            <span>Add All</span>
-          </button>
-        )}
+
       </div>
 
       {/* Track count */}
@@ -267,7 +256,7 @@ export function LibraryView() {
               </p>
             </div>
           </div>
-        ) : viewMode === "list" ? (
+        ) : libraryViewMode === "list" ? (
           <ListContent tracks={filtered} onAddToPlaylist={handleAddToPlaylist} onEditMetadata={handleEditMetadata} />
         ) : (
           <GridContent tracks={filtered} onAddToPlaylist={handleAddToPlaylist} onEditMetadata={handleEditMetadata} />

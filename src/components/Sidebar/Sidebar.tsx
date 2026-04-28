@@ -42,6 +42,12 @@ export function Sidebar() {
   const [creatingPlaylist, setCreatingPlaylist] = useState(false);
   const [newPlaylistName, setNewPlaylistName] = useState("");
 
+  const { importPlaylist } = useLibrary();
+
+  const handleImportPlaylist = async () => {
+    await importPlaylist();
+  };
+
   const handleCreatePlaylist = async () => {
     const name = newPlaylistName.trim();
     if (!name) return;
@@ -118,13 +124,22 @@ export function Sidebar() {
           <p className="text-xs font-semibold uppercase tracking-widest text-text-muted">
             Playlists
           </p>
-          <button
-            onClick={() => setCreatingPlaylist(true)}
-            className="btn-icon w-5 h-5 p-0"
-            title="New playlist"
-          >
-            <Plus size={13} />
-          </button>
+          <div className="flex items-center gap-1.5">
+            <button
+              onClick={handleImportPlaylist}
+              className="btn-icon w-6 h-6 p-0 hover:text-accent transition-colors"
+              title="Import playlist (JSON)"
+            >
+              <Music2 size={13} />
+            </button>
+            <button
+              onClick={() => setCreatingPlaylist(true)}
+              className="btn-icon w-6 h-6 p-0 hover:text-accent transition-colors"
+              title="New playlist"
+            >
+              <Plus size={15} />
+            </button>
+          </div>
         </div>
 
         {/* New playlist input */}

@@ -14,6 +14,7 @@ import type {
   ViewId,
   AppSettings,
 } from "../types";
+import { shuffleArray } from "../utils/helpers";
 
 // ── Player Slice ─────────────────────────────────────────────────────────────
 
@@ -71,6 +72,7 @@ interface UISlice {
   guiScale: number;
   trayEnabled: boolean;
   lastVolume: number;
+  libraryViewMode: "grid" | "list";
 
   setActiveView: (v: ViewId) => void;
   setActivePlaylist: (id: string | null) => void;
@@ -82,6 +84,7 @@ interface UISlice {
   setGuiScale: (s: number) => void;
   setTrayEnabled: (t: boolean) => void;
   toggleMute: () => void;
+  setLibraryViewMode: (m: "grid" | "list") => void;
 }
 
 // ── Combined Store ────────────────────────────────────────────────────────────
@@ -102,32 +105,39 @@ export const useStore = create<Store>()(
       setCurrentTrack: (track) =>
         set({ currentTrack: track, currentTime: 0 }),
 
-      setQueue: (tracks, startIndex = 0) =>
+      setQueue: (tracks, startIndex = 0) => {
+        const { shuffleEnabled } = get();
+        let finalTracks = [...tracks];
+        let finalIndex = startIndex;
+
+        if (shuffleEnabled && tracks.length > 0) {
+          const first = tracks[startIndex];
+          const rest = tracks.filter((_, i) => i !== startIndex);
+          finalTracks = [first, ...shuffleArray(rest)];
+          finalIndex = 0;
+        }
+
         set({
-          queue: tracks,
-          queueIndex: startIndex,
-          currentTrack: tracks[startIndex] ?? null,
+          queue: finalTracks,
+          queueIndex: finalIndex,
+          currentTrack: finalTracks[finalIndex] ?? null,
           currentTime: 0,
-        }),
+        });
+      },
 
       setIsPlaying: (v) => set({ isPlaying: v }),
       setCurrentTime: (t) => set({ currentTime: t }),
       setDuration: (d) => set({ duration: d }),
 
       playNext: () => {
-        const { queue, queueIndex, repeatMode, shuffleEnabled } = get();
+        const { queue, queueIndex, repeatMode } = get();
         if (!queue.length) return;
 
         let nextIndex: number;
-        if (shuffleEnabled) {
-          nextIndex = Math.floor(Math.random() * queue.length);
-        } else if (queueIndex < queue.length - 1) {
+        if (queueIndex < queue.length - 1) {
           nextIndex = queueIndex + 1;
-        } else if (repeatMode === "all") {
-          nextIndex = 0;
         } else {
-          set({ isPlaying: false });
-          return;
+          nextIndex = 0;
         }
         set({
           queueIndex: nextIndex,
@@ -196,6 +206,7 @@ export const useStore = create<Store>()(
       shuffleEnabled: false,
       guiScale: 1.15,
       trayEnabled: true,
+      libraryViewMode: "list",
 
       setActiveView: (v) => set({ activeView: v, activePlaylistId: null }),
       setActivePlaylist: (id) =>
@@ -207,8 +218,23 @@ export const useStore = create<Store>()(
       },
       setVolume: (v) => set({ volume: v }),
       setRepeatMode: (m) => set({ repeatMode: m }),
-      toggleShuffle: () =>
-        set((s) => ({ shuffleEnabled: !s.shuffleEnabled })),
+      toggleShuffle: () => {
+        const { shuffleEnabled, queue, queueIndex } = get();
+        const nextShuffle = !shuffleEnabled;
+        
+        if (nextShuffle && queue.length > 0) {
+          // Shuffle the part of the queue that hasn't played yet
+          const played = queue.slice(0, queueIndex + 1);
+          const remaining = queue.slice(queueIndex + 1);
+          const shuffled = [...played, ...shuffleArray(remaining)];
+          set({ queue: shuffled, shuffleEnabled: nextShuffle });
+        } else {
+          // In a real app we'd restore the original order, 
+          // but for now we just toggle the state.
+          // The next time a song is played from a list, the queue is reset anyway.
+          set({ shuffleEnabled: nextShuffle });
+        }
+      },
       setGuiScale: (s) => set({ guiScale: s }),
       setTrayEnabled: (t) => set({ trayEnabled: t }),
       lastVolume: 0.8,
@@ -220,6 +246,7 @@ export const useStore = create<Store>()(
           set({ volume: lastVolume > 0 ? lastVolume : 0.7 });
         }
       },
+      setLibraryViewMode: (m) => set({ libraryViewMode: m }),
     }),
     {
       name: "openmusic-storage",
@@ -234,6 +261,7 @@ export const useStore = create<Store>()(
         coversDir: s.coversDir,
         guiScale: s.guiScale,
         trayEnabled: s.trayEnabled,
+        libraryViewMode: s.libraryViewMode,
       }),
     }
   )

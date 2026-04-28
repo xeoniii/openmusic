@@ -14,6 +14,7 @@ import {
   savePlaylist,
   deletePlaylist,
   pickDirectory,
+  importPlaylist as importPlaylistApi,
 } from "../utils/tauriApi";
 import type { Playlist } from "../types";
 
@@ -113,7 +114,7 @@ export function useLibrary() {
 
   const removePlaylistData = useCallback(async (pl: Playlist) => {
     try {
-      await deletePlaylist(pl.folderPath);
+      await deletePlaylist(pl.filePath);
       removePlaylist(pl.id);
     } catch (err) {
       console.error("Delete playlist error:", err);
@@ -130,6 +131,23 @@ export function useLibrary() {
     },
     [updatePlaylistData]
   );
+  
+  const importPlaylist = useCallback(async () => {
+    if (!playlistsDir) return;
+    try {
+      const { open } = await import("@tauri-apps/plugin-dialog");
+      const selected = await open({
+        filters: [{ name: "Playlist", extensions: ["json"] }],
+        multiple: false,
+      });
+      if (selected && typeof selected === "string") {
+        const pl = await importPlaylistApi(playlistsDir, selected);
+        addPlaylist(pl);
+      }
+    } catch (err) {
+      console.error("Import playlist error:", err);
+    }
+  }, [playlistsDir, addPlaylist]);
 
   return {
     initialize,
@@ -140,5 +158,6 @@ export function useLibrary() {
     updatePlaylistData,
     removePlaylistData,
     removeTrackFromPlaylist,
+    importPlaylist,
   };
 }
