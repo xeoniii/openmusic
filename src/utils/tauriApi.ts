@@ -188,3 +188,39 @@ export async function toggleFullscreen(): Promise<void> {
 export async function importFiles(sources: string[], targetDir: string): Promise<number> {
   return await invoke("import_files", { sources, targetDir });
 }
+
+export interface HarbourSearchResult {
+  id: string;
+  title: string;
+  artist: string;
+  album: string;
+  duration: number;
+  coverArt: string;
+  url: string;
+}
+
+export async function searchHarbour(query: string, provider: string): Promise<HarbourSearchResult[]> {
+  const raw = await invoke<any[]>("harbour_search", { query, provider });
+  return deepCamel(raw) as HarbourSearchResult[];
+}
+
+export async function fetchTrackMetadata(query: string): Promise<HarbourSearchResult> {
+  const raw = await invoke<any>("fetch_track_metadata", { query });
+  return deepCamel(raw) as HarbourSearchResult;
+}
+
+export async function downloadTrack(
+  musicDir: string,
+  title: string,
+  artist: string,
+  album: string,
+  coverArt: string
+): Promise<string> {
+  return await invoke("download_track", {
+    musicDir,
+    title,
+    artist,
+    album,
+    coverArt,
+  });
+}

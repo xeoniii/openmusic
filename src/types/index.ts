@@ -52,7 +52,7 @@ export interface AppSettings {
   shuffleEnabled: boolean;
 }
 
-export type ViewId = "home" | "library" | "playlist" | "player" | "settings";
+export type ViewId = "home" | "library" | "playlist" | "player" | "settings" | "harbour";
 
 export interface PlayerState {
   currentTrack: Track | null;

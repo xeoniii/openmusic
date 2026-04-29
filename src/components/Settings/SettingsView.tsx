@@ -6,6 +6,7 @@ import {
 import { useStore } from "../../store";
 import { useLibrary } from "../../hooks/useLibrary";
 import { ACCENT_PRESETS, pluralize } from "../../utils/helpers";
+import { setTrayEnabled } from "../../utils/tauriApi";
 import type { AccentPreset } from "../../types";
 
 function Section({
@@ -143,7 +144,6 @@ export function SettingsView() {
                 onChange={(e) => {
                   const val = e.target.checked;
                   setTrayEnabled(val);
-                  import("../../utils/tauriApi").then(api => api.setTrayEnabled(val));
                 }}
               />
               <div className="w-9 h-5 bg-surface-raised peer-focus:outline-none rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-4 after:w-4 after:transition-all peer-checked:bg-accent border border-border-subtle" />
@@ -254,7 +254,7 @@ export function SettingsView() {
         {/* ── About ─────────────────────────────────────────────────────────────── */}
         <div className="w-full text-center py-8 mt-4 border-t border-border-subtle">
           <p className="text-xs text-text-muted flex flex-col gap-1">
-            <span className="font-display font-black text-sm text-text-secondary tracking-tight">OpenMusic <span className="text-accent">v0.5.9</span></span>
+            <span className="font-display font-black text-sm text-text-secondary tracking-tight">OpenMusic <span className="text-accent">v0.6.0</span></span>
             <span>Crafted with love for high-quality audio.</span>
             <span>Made by xeoniii.dev</span>
             <span className="mt-2 opacity-60">Build ID: {new Date().toISOString().split('T')[0].replace(/-/g, '')}</span>

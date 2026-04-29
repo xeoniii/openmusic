@@ -16,6 +16,7 @@ import {
   pickDirectory,
   importPlaylist as importPlaylistApi,
 } from "../utils/tauriApi";
+import { open } from "@tauri-apps/plugin-dialog";
 import type { Playlist } from "../types";
 
 export function useLibrary() {
@@ -135,7 +136,6 @@ export function useLibrary() {
   const importPlaylist = useCallback(async () => {
     if (!playlistsDir) return;
     try {
-      const { open } = await import("@tauri-apps/plugin-dialog");
       const selected = await open({
         filters: [{ name: "Playlist", extensions: ["json"] }],
         multiple: false,

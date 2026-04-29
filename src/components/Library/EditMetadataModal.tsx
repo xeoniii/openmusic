@@ -1,7 +1,7 @@
 import React, { useState, useEffect, useRef, useCallback } from "react";
-import { X, Save, ImageIcon } from "lucide-react";
+import { X, Save, ImageIcon, Search } from "lucide-react";
 import { useStore } from "../../store";
-import { saveTrackMetadata, getCoverArt } from "../../utils/tauriApi";
+import { saveTrackMetadata, getCoverArt, fetchTrackMetadata } from "../../utils/tauriApi";
 import type { Track } from "../../types";
 
 interface EditMetadataModalProps {
@@ -19,6 +19,7 @@ export function EditMetadataModal({ track, onClose }: EditMetadataModalProps) {
   const [coverUrl, setCoverUrl] = useState<string | null>(null);
   const [newCover, setNewCover] = useState<string | null>(null);
   const [saving, setSaving] = useState(false);
+  const [fetching, setFetching] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
 
@@ -41,6 +42,46 @@ export function EditMetadataModal({ track, onClose }: EditMetadataModalProps) {
     };
     reader.readAsDataURL(file);
   }, []);
+
+  const handleFetchMetadata = useCallback(async () => {
+    const query = `${title || track.title} ${artist || track.artist}`.trim();
+    if (!query) {
+      setError("Please provide at least a title or artist to fetch metadata.");
+      return;
+    }
+
+    setFetching(true);
+    setError(null);
+    try {
+      const result = await fetchTrackMetadata(query);
+      if (result) {
+        if (result.title) setTitle(result.title);
+        if (result.artist) setArtist(result.artist);
+        if (result.album && result.album !== "YouTube") setAlbum(result.album);
+        
+        if (result.coverArt) {
+          try {
+            const resp = await fetch(result.coverArt);
+            const blob = await resp.blob();
+            const reader = new FileReader();
+            reader.onloadend = () => {
+              const base64data = reader.result as string;
+              setCoverUrl(base64data);
+              setNewCover(base64data);
+            };
+            reader.readAsDataURL(blob);
+          } catch (e) {
+            console.error("Failed to download cover art blob", e);
+            // Could not download blob directly (possibly CORS), user will have to set cover manually
+          }
+        }
+      }
+    } catch (err) {
+      setError("Failed to fetch metadata. Make sure you are connected to the internet.");
+    } finally {
+      setFetching(false);
+    }
+  }, [title, track.title, artist, track.artist]);
 
   const handleSave = useCallback(async () => {
     setSaving(true);
@@ -167,10 +208,18 @@ export function EditMetadataModal({ track, onClose }: EditMetadataModalProps) {
         )}
 
         <div className="flex items-center justify-end gap-3 px-6 py-4 border-t border-border-subtle">
+          <button 
+            onClick={handleFetchMetadata} 
+            disabled={fetching || saving} 
+            className="btn-accent bg-surface-overlay text-text-secondary hover:opacity-80"
+          >
+            <Search size={14} />
+            {fetching ? "Fetching…" : "Fetch Metadata"}
+          </button>
           <button onClick={onClose} className="btn-accent bg-surface-overlay text-text-secondary hover:opacity-80">
             Cancel
           </button>
-          <button onClick={handleSave} disabled={saving} className="btn-accent">
+          <button onClick={handleSave} disabled={saving || fetching} className="btn-accent">
             <Save size={14} />
             {saving ? "Saving…" : "Save"}
           </button>

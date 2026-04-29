@@ -1,6 +1,6 @@
 [package]
 name = "openmusic"
-version = "0.5.9"
+version = "0.6.0"
 description = "OpenMusic — A modern offline music player"
 authors = ["xeoniii <https://github.com/xeoniii>"]
 license = "GPL-3.0-only"
@@ -29,6 +29,10 @@ image = "0.24"
 rayon = "1.8"
 discord-rich-presence = "0.2.4"
 tauri-plugin-single-instance = "2"
+reqwest = { version = "0.11", features = ["json", "cookies"] }
+urlencoding = "2.1"
+regex = "1.10"
+tauri-plugin-shell = "2"
 
 [features]
 custom-protocol = ["tauri/custom-protocol"]

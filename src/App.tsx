@@ -10,6 +10,7 @@ import { HomeView } from "./components/Dashboard/HomeView";
 import { LibraryView } from "./components/Library/LibraryView";
 import { PlaylistView } from "./components/Library/PlaylistView";
 import { PlayerView } from "./components/Player/PlayerView";
+import HarbourView from "./components/Harbour/HarbourView";
 import { SettingsView } from "./components/Settings/SettingsView";
 
 function ViewRouter() {
@@ -20,6 +21,7 @@ function ViewRouter() {
     case "library":  return <LibraryView />;
     case "playlist": return <PlaylistView />;
     case "player":   return <PlayerView />;
+    case "harbour":  return <HarbourView />;
     case "settings": return <SettingsView />;
     default:         return <HomeView />;
   }

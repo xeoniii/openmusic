@@ -18,28 +18,29 @@
 // Prevents additional console window on Windows in release, DO NOT REMOVE!!
 #![cfg_attr(not(debug_assertions), windows_subsystem = "windows")]
 
-use std::path::{Path, PathBuf};
-use std::fs;
-use serde::{Deserialize, Serialize};
-use tauri::Manager;
-use tauri::tray::{TrayIconBuilder, TrayIconEvent, MouseButton};
-use tauri::menu::{Menu, MenuItem};
-use walkdir::WalkDir;
-use lofty::{AudioFile, TaggedFileExt, Accessor, ItemKey, PictureType, Picture, MimeType, Tag, TagType};
-use base64::{Engine as _, engine::general_purpose};
-use std::hash::{Hash, Hasher};
+use base64::{engine::general_purpose, Engine as _};
+use discord_rich_presence::{activity, DiscordIpc, DiscordIpcClient};
+use image::io::Reader as ImageReader;
+use lofty::{
+    Accessor, AudioFile, ItemKey, MimeType, Picture, PictureType, Tag, TagType, TaggedFileExt,
+};
+use percent_encoding::percent_decode_str;
+use rayon::prelude::*;
 use rustc_hash::FxHasher;
-use discord_rich_presence::{DiscordIpc, DiscordIpcClient, activity};
+use serde::{Deserialize, Serialize};
+use std::fs;
+use std::hash::{Hash, Hasher};
+use std::io::Cursor;
+use std::path::{Path, PathBuf};
 use std::sync::atomic::{AtomicBool, Ordering};
 use std::sync::Mutex;
 use std::time::{SystemTime, UNIX_EPOCH};
-use tiny_http::{Server, Response, Header};
+use tauri::menu::{Menu, MenuItem};
+use tauri::tray::{MouseButton, TrayIconBuilder, TrayIconEvent};
+use tauri::Manager;
+use tiny_http::{Header, Response, Server};
 use url::Url;
-use percent_encoding::percent_decode_str;
-use rayon::prelude::*;
-use std::io::Cursor;
-use image::io::Reader as ImageReader;
-
+use walkdir::WalkDir;
 
 #[derive(Debug, Serialize, Deserialize, Clone)]
 pub struct Track {
@@ -91,6 +92,22 @@ pub struct AppState {
     pub tray_enabled: AtomicBool,
 }
 
+#[derive(Debug, Serialize, Deserialize)]
+pub struct HarbourSearchResult {
+    pub id: String,
+    pub title: String,
+    pub artist: String,
+    pub album: String,
+    pub duration: f64,
+    pub cover_art: String,
+    pub url: String,
+}
+
+pub struct HarbourState {
+    pub token: Mutex<Option<String>>,
+    pub token_expiry: Mutex<u64>,
+}
+
 static COVERS_CACHE_DIR: Mutex<Option<PathBuf>> = Mutex::new(None);
 
 fn is_audio_file(path: &Path) -> bool {
@@ -124,14 +141,12 @@ fn parse_track(path: &Path) -> Result<Track, String> {
 
     let file_size = fs::metadata(path).map(|m| m.len()).unwrap_or(0);
 
-    let tagged = lofty::read_from_path(path)
-        .map_err(|e| format!("lofty error on {}: {}", file_path, e))?;
+    let tagged =
+        lofty::read_from_path(path).map_err(|e| format!("lofty error on {}: {}", file_path, e))?;
 
     let duration = tagged.properties().duration().as_secs_f64();
 
     let tag = tagged.primary_tag().or_else(|| tagged.first_tag());
-
-    
 
     let lyrics: Option<String> = if let Some(t) = &tag {
         if let Some(item) = t.get(&ItemKey::Lyrics) {
@@ -166,9 +181,7 @@ fn parse_track(path: &Path) -> Result<Track, String> {
             t.get_string(&ItemKey::AlbumArtist)
                 .map(|s| s.to_string())
                 .unwrap_or_else(|| "Unknown Artist".to_string()),
-            t.genre()
-                .map(|s| s.to_string())
-                .unwrap_or_default(),
+            t.genre().map(|s| s.to_string()).unwrap_or_default(),
             t.year(),
             t.track(),
         )
@@ -236,7 +249,8 @@ fn get_app_paths(app_handle: tauri::AppHandle) -> Result<AppPaths, String> {
         .join("covers");
 
     fs::create_dir_all(&music_dir).map_err(|e| format!("Cannot create music dir: {}", e))?;
-    fs::create_dir_all(&playlists_dir).map_err(|e| format!("Cannot create playlists dir: {}", e))?;
+    fs::create_dir_all(&playlists_dir)
+        .map_err(|e| format!("Cannot create playlists dir: {}", e))?;
     fs::create_dir_all(&covers_dir).map_err(|e| format!("Cannot create covers dir: {}", e))?;
 
     if let Ok(mut lock) = COVERS_CACHE_DIR.lock() {
@@ -291,21 +305,30 @@ fn scan_music_directory(dir_path: String) -> Result<ScanResult, String> {
         .filter(|e| e.file_type().is_file())
         .collect();
 
-    let (tracks, errors): (Vec<Track>, Vec<String>) = entries.par_iter().map(|entry| {
-        let path = entry.path();
-        if is_audio_file(path) {
-            match parse_track(path) {
-                Ok(track) => (Some(track), None),
-                Err(e) => (None, Some(e)),
+    let (tracks, errors): (Vec<Track>, Vec<String>) = entries
+        .par_iter()
+        .map(|entry| {
+            let path = entry.path();
+            if is_audio_file(path) {
+                match parse_track(path) {
+                    Ok(track) => (Some(track), None),
+                    Err(e) => (None, Some(e)),
+                }
+            } else {
+                (None, None)
             }
-        } else {
-            (None, None)
-        }
-    }).collect::<Vec<_>>().into_iter().fold((Vec::new(), Vec::new()), |(mut ts, mut es), (t, e)| {
-        if let Some(track) = t { ts.push(track); }
-        if let Some(err) = e { es.push(err); }
-        (ts, es)
-    });
+        })
+        .collect::<Vec<_>>()
+        .into_iter()
+        .fold((Vec::new(), Vec::new()), |(mut ts, mut es), (t, e)| {
+            if let Some(track) = t {
+                ts.push(track);
+            }
+            if let Some(err) = e {
+                es.push(err);
+            }
+            (ts, es)
+        });
 
     let mut tracks = tracks;
 
@@ -340,7 +363,10 @@ fn list_playlists(playlists_dir: String) -> Result<Vec<Playlist>, String> {
 
     let mut playlists = Vec::new();
 
-    for entry in fs::read_dir(&root).map_err(|e| e.to_string())?.filter_map(|e| e.ok()) {
+    for entry in fs::read_dir(&root)
+        .map_err(|e| e.to_string())?
+        .filter_map(|e| e.ok())
+    {
         let path = entry.path();
         if path.is_file() && path.extension().and_then(|s| s.to_str()) == Some("json") {
             if let Ok(content) = fs::read_to_string(&path) {
@@ -369,12 +395,18 @@ fn create_playlist(playlists_dir: String, name: String) -> Result<Playlist, Stri
 
     let safe_name: String = name
         .chars()
-        .map(|c| if c.is_alphanumeric() || c == ' ' || c == '-' { c } else { '_' })
+        .map(|c| {
+            if c.is_alphanumeric() || c == ' ' || c == '-' {
+                c
+            } else {
+                '_'
+            }
+        })
         .collect();
     let safe_name = safe_name.trim().to_string();
 
     let file_path = PathBuf::from(&playlists_dir).join(format!("{}.json", safe_name));
-    
+
     let playlist = Playlist {
         id,
         name,
@@ -410,22 +442,426 @@ fn delete_playlist(file_path: String) -> Result<(), String> {
 fn import_playlist(playlists_dir: String, source_path: String) -> Result<Playlist, String> {
     let source = PathBuf::from(&source_path);
     let content = fs::read_to_string(&source).map_err(|e| format!("Cannot read source: {}", e))?;
-    let mut pl = serde_json::from_str::<Playlist>(&content).map_err(|e| format!("Invalid playlist JSON: {}", e))?;
+    let mut pl = serde_json::from_str::<Playlist>(&content)
+        .map_err(|e| format!("Invalid playlist JSON: {}", e))?;
 
-    let safe_name: String = pl.name
+    let safe_name: String = pl
+        .name
         .chars()
-        .map(|c| if c.is_alphanumeric() || c == ' ' || c == '-' { c } else { '_' })
+        .map(|c| {
+            if c.is_alphanumeric() || c == ' ' || c == '-' {
+                c
+            } else {
+                '_'
+            }
+        })
         .collect();
     let safe_name = safe_name.trim().to_string();
 
     let target_path = PathBuf::from(&playlists_dir).join(format!("{}.json", safe_name));
-    
+
     pl.file_path = target_path.to_string_lossy().to_string();
-    
+
     let manifest = serde_json::to_string_pretty(&pl).map_err(|e| e.to_string())?;
     fs::write(&target_path, manifest).map_err(|e| e.to_string())?;
 
     Ok(pl)
+}
+
+#[tauri::command]
+async fn harbour_search(
+    app_handle: tauri::AppHandle,
+    _state: tauri::State<'_, HarbourState>,
+    query: String,
+    provider: String,
+) -> Result<Vec<HarbourSearchResult>, String> {
+    match provider.as_str() {
+        "jiosaavn" => search_jiosaavn(app_handle, query).await,
+        "itunes" => search_itunes(app_handle, query).await,
+        "youtube" => search_youtube_direct(app_handle, query).await,
+        _ => search_jiosaavn(app_handle, query).await, // Default
+    }
+}
+
+async fn search_jiosaavn(app_handle: tauri::AppHandle, query: String) -> Result<Vec<HarbourSearchResult>, String> {
+    let client = reqwest::Client::new();
+    let search_url = format!("https://www.jiosaavn.com/api.php?__call=autocomplete.get&_format=json&_marker=0&cc=in&includeMetaTags=1&query={}", urlencoding::encode(&query));
+
+    let resp = client
+        .get(search_url)
+        .header(reqwest::header::USER_AGENT, "Mozilla/5.0")
+        .send()
+        .await
+        .map_err(|e| format!("JioSaavn search failed: {}", e))?;
+
+    let data: serde_json::Value = resp.json().await.map_err(|e| e.to_string())?;
+    let mut results = Vec::new();
+
+    if let Some(songs) = data["songs"]["data"].as_array() {
+        for s in songs {
+            let cover_art = s["image"]
+                .as_str()
+                .unwrap_or_default()
+                .replace("50x50", "500x500");
+            results.push(HarbourSearchResult {
+                id: s["id"].as_str().unwrap_or_default().to_string(),
+                title: s["title"].as_str().unwrap_or_default().to_string(),
+                artist: s["more_info"]["music"]
+                    .as_str()
+                    .unwrap_or_else(|| s["description"].as_str().unwrap_or_default())
+                    .to_string(),
+                album: s["more_info"]["album"]
+                    .as_str()
+                    .unwrap_or_default()
+                    .to_string(),
+                duration: 0.0,
+                cover_art,
+                url: s["url"].as_str().unwrap_or_default().to_string(),
+            });
+        }
+    }
+    
+    if results.is_empty() {
+        return youtube_search_fallback(app_handle, query).await;
+    }
+    
+    Ok(results)
+}
+
+async fn search_itunes(app_handle: tauri::AppHandle, query: String) -> Result<Vec<HarbourSearchResult>, String> {
+    let client = reqwest::Client::new();
+    let search_url = format!(
+        "https://itunes.apple.com/search?term={}&entity=song&limit=30",
+        urlencoding::encode(&query)
+    );
+
+    let resp = client
+        .get(search_url)
+        .header(reqwest::header::USER_AGENT, "Mozilla/5.0")
+        .send()
+        .await
+        .map_err(|e| format!("iTunes search failed: {}", e))?;
+
+    let data: serde_json::Value = resp.json().await.map_err(|e| e.to_string())?;
+    let mut results = Vec::new();
+
+    if let Some(tracks) = data["results"].as_array() {
+        for t in tracks {
+            let cover_art = t["artworkUrl100"]
+                .as_str()
+                .unwrap_or_default()
+                .replace("100x100", "600x600");
+            results.push(HarbourSearchResult {
+                id: t["trackId"].as_i64().unwrap_or(0).to_string(),
+                title: t["trackName"].as_str().unwrap_or_default().to_string(),
+                artist: t["artistName"].as_str().unwrap_or_default().to_string(),
+                album: t["collectionName"].as_str().unwrap_or_default().to_string(),
+                duration: (t["trackTimeMillis"].as_f64().unwrap_or(0.0) / 1000.0),
+                cover_art,
+                url: t["trackViewUrl"].as_str().unwrap_or_default().to_string(),
+            });
+        }
+    }
+
+    if results.is_empty() {
+        return youtube_search_fallback(app_handle, query).await;
+    }
+
+    Ok(results)
+}
+
+async fn get_yt_dlp_path(app_handle: &tauri::AppHandle) -> PathBuf {
+    let app_dir = app_handle.path().app_data_dir().unwrap_or_default();
+    let bin_name = if cfg!(windows) { "yt-dlp.exe" } else { "yt-dlp" };
+    app_dir.join(bin_name)
+}
+
+async fn get_ffmpeg_path(app_handle: &tauri::AppHandle) -> PathBuf {
+    let app_dir = app_handle.path().app_data_dir().unwrap_or_default();
+    let bin_name = if cfg!(windows) { "ffmpeg.exe" } else { "ffmpeg" };
+    app_dir.join(bin_name)
+}
+
+#[tauri::command]
+async fn ensure_dependencies(app_handle: tauri::AppHandle) -> Result<String, String> {
+    let yt_dlp_path = get_yt_dlp_path(&app_handle).await;
+    let ffmpeg_path = get_ffmpeg_path(&app_handle).await;
+    
+    // Create app data dir if it doesn't exist
+    let app_dir = yt_dlp_path.parent().unwrap();
+    fs::create_dir_all(app_dir).map_err(|e| format!("Failed to create app directory: {}", e))?;
+
+    // Download yt-dlp if missing
+    if !yt_dlp_path.exists() {
+        let url = if cfg!(target_os = "windows") {
+            "https://github.com/yt-dlp/yt-dlp/releases/latest/download/yt-dlp.exe"
+        } else if cfg!(target_os = "macos") {
+            "https://github.com/yt-dlp/yt-dlp/releases/latest/download/yt-dlp_macos"
+        } else {
+            "https://github.com/yt-dlp/yt-dlp/releases/latest/download/yt-dlp"
+        };
+        
+        let client = reqwest::Client::new();
+        let response = client.get(url).send().await.map_err(|e| format!("yt-dlp download failed: {}", e))?;
+        let bytes = response.bytes().await.map_err(|e| format!("Failed to read yt-dlp: {}", e))?;
+        fs::write(&yt_dlp_path, bytes).map_err(|e| format!("Failed to write yt-dlp: {}", e))?;
+
+        #[cfg(unix)]
+        {
+            use std::os::unix::fs::PermissionsExt;
+            let mut perms = fs::metadata(&yt_dlp_path).map_err(|e| e.to_string())?.permissions();
+            perms.set_mode(0o755);
+            fs::set_permissions(&yt_dlp_path, perms).map_err(|e| e.to_string())?;
+        }
+    }
+
+    // Download ffmpeg if missing
+    if !ffmpeg_path.exists() {
+        let url = if cfg!(target_os = "windows") {
+            "https://github.com/eugeneware/ffmpeg-static/releases/latest/download/ffmpeg-win32-x64"
+        } else if cfg!(target_os = "macos") {
+            "https://github.com/eugeneware/ffmpeg-static/releases/latest/download/ffmpeg-darwin-x64"
+        } else {
+            "https://github.com/eugeneware/ffmpeg-static/releases/latest/download/ffmpeg-linux-x64"
+        };
+
+        let client = reqwest::Client::new();
+        let response = client.get(url).send().await.map_err(|e| format!("ffmpeg download failed: {}", e))?;
+        let bytes = response.bytes().await.map_err(|e| format!("Failed to read ffmpeg: {}", e))?;
+        fs::write(&ffmpeg_path, bytes).map_err(|e| format!("Failed to write ffmpeg: {}", e))?;
+
+        #[cfg(unix)]
+        {
+            use std::os::unix::fs::PermissionsExt;
+            let mut perms = fs::metadata(&ffmpeg_path).map_err(|e| e.to_string())?.permissions();
+            perms.set_mode(0o755);
+            fs::set_permissions(&ffmpeg_path, perms).map_err(|e| e.to_string())?;
+        }
+    }
+
+    Ok("Dependencies ready".to_string())
+}
+
+async fn search_youtube_direct(app_handle: tauri::AppHandle, query: String) -> Result<Vec<HarbourSearchResult>, String> {
+    youtube_search_fallback(app_handle, query).await
+}
+
+async fn youtube_search_fallback(app_handle: tauri::AppHandle, query: String) -> Result<Vec<HarbourSearchResult>, String> {
+    use std::process::Command;
+    let search_query = format!("ytsearch20:{} official audio", query);
+    let yt_dlp_path = get_yt_dlp_path(&app_handle).await;
+    
+    let output = if yt_dlp_path.exists() {
+        Command::new(&yt_dlp_path)
+            .args([
+                "--dump-json",
+                "--flat-playlist",
+                "--no-playlist",
+                "--default-search", "ytsearch",
+                "--no-check-certificates",
+                "--geo-bypass",
+                "--extractor-args", "youtube:player-client=ios,android,web",
+                &search_query
+            ])
+            .output()
+            .map_err(|e| format!("YouTube search failed (local): {}", e))?
+    } else {
+        Command::new("yt-dlp")
+            .args([
+                "--dump-json",
+                "--flat-playlist",
+                "--no-playlist",
+                "--default-search", "ytsearch",
+                "--no-check-certificates",
+                "--geo-bypass",
+                "--extractor-args", "youtube:player-client=ios,android,web",
+                &search_query
+            ])
+            .output()
+            .map_err(|e| format!("YouTube search failed (system): {}", e))?
+    };
+
+    let body = String::from_utf8_lossy(&output.stdout);
+    let mut results = Vec::new();
+
+    for line in body.lines() {
+        if let Ok(item) = serde_json::from_str::<serde_json::Value>(line) {
+            let title = item["title"]
+                .as_str()
+                .unwrap_or("Unknown Title")
+                .to_string();
+            let uploader = item["uploader"]
+                .as_str()
+                .unwrap_or("Unknown Artist")
+                .to_string();
+
+            let (artist, clean_title) = if title.contains(" - ") {
+                let parts: Vec<&str> = title.splitn(2, " - ").collect();
+                (parts[0].trim().to_string(), parts[1].trim().to_string())
+            } else {
+                (uploader, title)
+            };
+
+            results.push(HarbourSearchResult {
+                id: item["id"].as_str().unwrap_or_default().to_string(),
+                title: clean_title,
+                artist: artist,
+                album: "YouTube".to_string(),
+                duration: item["duration"].as_f64().unwrap_or(0.0),
+                cover_art: item["thumbnails"][0]["url"]
+                    .as_str()
+                    .unwrap_or_default()
+                    .to_string(),
+                url: item["url"].as_str().unwrap_or_default().to_string(),
+            });
+        }
+    }
+    Ok(results)
+}
+
+#[tauri::command]
+async fn fetch_track_metadata(query: String) -> Result<HarbourSearchResult, String> {
+    let client = reqwest::Client::new();
+    let search_url = format!("https://itunes.apple.com/search?term={}&entity=song&limit=1", urlencoding::encode(&query));
+
+    let resp = client
+        .get(search_url)
+        .header(reqwest::header::USER_AGENT, "Mozilla/5.0")
+        .send()
+        .await
+        .map_err(|e| format!("Metadata fetch failed: {}", e))?;
+
+    let data: serde_json::Value = resp.json().await.map_err(|e| e.to_string())?;
+
+    if let Some(results) = data["results"].as_array() {
+        if !results.is_empty() {
+            let s = &results[0];
+            let cover_art = s["artworkUrl100"].as_str().unwrap_or_default().replace("100x100bb", "500x500bb");
+            return Ok(HarbourSearchResult {
+                id: s["trackId"].as_i64().unwrap_or_default().to_string(),
+                title: s["trackName"].as_str().unwrap_or_default().to_string(),
+                artist: s["artistName"].as_str().unwrap_or_default().to_string(),
+                album: s["collectionName"].as_str().unwrap_or_default().to_string(),
+                duration: s["trackTimeMillis"].as_f64().unwrap_or(0.0) / 1000.0,
+                cover_art,
+                url: s["trackViewUrl"].as_str().unwrap_or_default().to_string(),
+            });
+        }
+    }
+    
+    Err("No metadata found for this track".to_string())
+}
+
+#[tauri::command]
+async fn download_track(
+    app_handle: tauri::AppHandle,
+    music_dir: String,
+    title: String,
+    artist: String,
+    _album: String,
+    _cover_art: String,
+) -> Result<String, String> {
+    use std::process::Command;
+
+    let safe_title = title.replace("/", "_").replace("\\", "_");
+    let safe_artist = artist.replace("/", "_").replace("\\", "_");
+    let filename = format!("{} - {}.mp3", safe_artist, safe_title);
+    let target_path = PathBuf::from(&music_dir).join(&filename);
+
+    if target_path.exists() {
+        return Ok(target_path.to_string_lossy().to_string());
+    }
+
+    let search_query = format!(
+        "ytsearch1:{} official audio",
+        format!("{} - {}", artist, title)
+    );
+
+    let yt_dlp_path = get_yt_dlp_path(&app_handle).await;
+    let ffmpeg_path = get_ffmpeg_path(&app_handle).await;
+    
+    let output = if yt_dlp_path.exists() {
+        let mut cmd = Command::new(&yt_dlp_path);
+        cmd.args([
+            "-4",
+            "--no-cache-dir",
+            "--no-check-certificates",
+            "--geo-bypass",
+            "--extractor-args", "youtube:player-client=web",
+            "--extract-audio",
+            "--audio-format", "mp3",
+            "--audio-quality", "0",
+            "--output", target_path.to_str().ok_or("Invalid target path")?,
+            "--no-playlist",
+            "--prefer-ffmpeg",
+        ]);
+
+        if ffmpeg_path.exists() {
+            cmd.arg("--ffmpeg-location").arg(&ffmpeg_path);
+        }
+
+        cmd.arg(&search_query)
+            .output()
+            .map_err(|e| format!("Could not start local yt-dlp: {}", e))?
+    } else {
+        Command::new("yt-dlp")
+            .args([
+                "-4",
+                "--no-cache-dir",
+                "--no-check-certificates",
+                "--geo-bypass",
+                "--extractor-args", "youtube:player-client=web",
+                "--extract-audio",
+                "--audio-format", "mp3",
+                "--audio-quality", "0",
+                "--output", target_path.to_str().ok_or("Invalid target path")?,
+                "--no-playlist",
+                "--prefer-ffmpeg",
+                &search_query
+            ])
+            .output()
+            .map_err(|e| format!("Could not start system yt-dlp: {}. Please ensure yt-dlp and ffmpeg are installed.", e))?
+    };
+
+    if !output.status.success() {
+        let err = String::from_utf8_lossy(&output.stderr);
+        return Err(format!("Download failed: {}", err));
+    }
+
+    // --- Automatic Metadata Tagging ---
+    if let Ok(mut tagged_file) = lofty::read_from_path(&target_path) {
+        let tag = match tagged_file.primary_tag_mut() {
+            Some(t) => t,
+            None => {
+                let t_type = tagged_file.primary_tag_type();
+                tagged_file.insert_tag(Tag::new(t_type));
+                tagged_file.primary_tag_mut().unwrap()
+            }
+        };
+
+        tag.insert_text(ItemKey::TrackTitle, title.clone());
+        tag.insert_text(ItemKey::TrackArtist, artist.clone());
+        tag.insert_text(ItemKey::AlbumTitle, _album.clone());
+
+        // Attempt to download and embed cover art
+        if !_cover_art.is_empty() {
+            if let Ok(resp) = reqwest::get(&_cover_art).await {
+                if let Ok(bytes) = resp.bytes().await {
+                    let picture = Picture::new_unchecked(
+                        PictureType::CoverFront,
+                        Some(MimeType::Jpeg),
+                        None,
+                        bytes.to_vec(),
+                    );
+                    tag.push_picture(picture);
+                }
+            }
+        }
+
+        let _ = tagged_file.save_to_path(&target_path);
+    }
+
+    Ok(target_path.to_string_lossy().to_string())
 }
 
 #[tauri::command]
@@ -440,17 +876,19 @@ async fn pick_directory(app_handle: tauri::AppHandle) -> Result<Option<String>, 
 #[tauri::command]
 fn get_cover_art(file_path: String) -> Result<Option<String>, String> {
     let path = Path::new(&file_path);
-    if !path.exists() { return Ok(None); }
+    if !path.exists() {
+        return Ok(None);
+    }
 
     let tagged = lofty::read_from_path(path).map_err(|e| format!("lofty error: {}", e))?;
     let tag = tagged.primary_tag().or_else(|| tagged.first_tag());
-    
+
     if let Some(t) = tag {
         if !t.pictures().is_empty() {
             return Ok(Some(file_path));
         }
     }
-    
+
     Ok(None)
 }
 
@@ -467,10 +905,28 @@ pub struct TrackMetadata {
 }
 
 #[tauri::command]
-fn save_track_metadata(file_path: String, metadata: TrackMetadata) -> Result<(), String> {
+async fn save_track_metadata(file_path: String, metadata: TrackMetadata) -> Result<(), String> {
     let path = Path::new(&file_path);
     if !path.exists() {
         return Err(format!("File not found: {}", file_path));
+    }
+
+    let mut fetched_cover = None;
+    if let Some(ref cover) = metadata.cover_art {
+        if cover.starts_with("http") {
+            if let Ok(resp) = reqwest::get(cover).await {
+                if let Ok(bytes) = resp.bytes().await {
+                    fetched_cover = Some(bytes.to_vec());
+                }
+            }
+        } else if cover.starts_with("data:") {
+            let parts: Vec<&str> = cover.splitn(2, ',').collect();
+            if parts.len() == 2 {
+                if let Ok(data) = general_purpose::STANDARD.decode(parts[1]) {
+                    fetched_cover = Some(data);
+                }
+            }
+        }
     }
 
     let mut tagged = lofty::read_from_path(path).map_err(|e| format!("lofty error: {}", e))?;
@@ -478,7 +934,11 @@ fn save_track_metadata(file_path: String, metadata: TrackMetadata) -> Result<(),
     let tag = match tagged.primary_tag_mut() {
         Some(t) => t,
         None => {
-            let ext = path.extension().and_then(|e| e.to_str()).unwrap_or("").to_lowercase();
+            let ext = path
+                .extension()
+                .and_then(|e| e.to_str())
+                .unwrap_or("")
+                .to_lowercase();
             let tag_type = match ext.as_str() {
                 "mp3" => TagType::Id3v2,
                 "flac" => TagType::VorbisComments,
@@ -527,35 +987,29 @@ fn save_track_metadata(file_path: String, metadata: TrackMetadata) -> Result<(),
         tag.set_track(track_number);
     }
 
-    if let Some(cover_b64) = metadata.cover_art {
-        if !cover_b64.is_empty() && cover_b64.starts_with("data:") {
-            let parts: Vec<&str> = cover_b64.splitn(2, ',').collect();
-            if parts.len() == 2 {
-                let data = general_purpose::STANDARD.decode(parts[1])
-                    .map_err(|e| format!("Failed to decode cover art: {}", e))?;
-                let pic = Picture::new_unchecked(
-                    PictureType::CoverFront,
-                    Some(MimeType::Jpeg),
-                    None,
-                    data,
-                );
-                tag.remove_picture_type(PictureType::CoverFront);
-                let pics = tag.pictures().to_vec();
-                let mut new_pics: Vec<Picture> = pics.into_iter()
-                    .filter(|p| p.pic_type() != PictureType::CoverFront)
-                    .collect();
-                new_pics.push(pic);
-                for (i, p) in new_pics.iter().enumerate() {
-                    tag.set_picture(i, p.clone());
-                }
-            }
+    if let Some(data) = fetched_cover {
+        let pic = Picture::new_unchecked(
+            PictureType::CoverFront,
+            Some(MimeType::Jpeg),
+            None,
+            data,
+        );
+        tag.remove_picture_type(PictureType::CoverFront);
+        let pics = tag.pictures().to_vec();
+        let mut new_pics: Vec<Picture> = pics
+            .into_iter()
+            .filter(|p| p.pic_type() != PictureType::CoverFront)
+            .collect();
+        new_pics.push(pic);
+        for (i, p) in new_pics.iter().enumerate() {
+            tag.set_picture(i, p.clone());
         }
     }
 
-    tagged.save_to_path(path).map_err(|e| format!("Failed to save metadata: {}", e))
+    tagged
+        .save_to_path(path)
+        .map_err(|e| format!("Failed to save metadata: {}", e))
 }
-
-
 
 #[tauri::command]
 fn set_tray_enabled(
@@ -573,7 +1027,9 @@ fn set_tray_enabled(
 #[tauri::command]
 fn toggle_fullscreen(window: tauri::Window) -> Result<(), String> {
     let is_fullscreen = window.is_fullscreen().unwrap_or(false);
-    window.set_fullscreen(!is_fullscreen).map_err(|e| e.to_string())
+    window
+        .set_fullscreen(!is_fullscreen)
+        .map_err(|e| e.to_string())
 }
 
 #[tauri::command]
@@ -585,7 +1041,7 @@ fn update_discord_rpc(
     current_time: f64,
 ) -> Result<(), String> {
     let mut client_lock = state.client.lock().map_err(|e| e.to_string())?;
-    
+
     if client_lock.is_none() {
         if let Ok(mut client) = DiscordIpcClient::new("1497554583726329938") {
             if client.connect().is_ok() {
@@ -598,14 +1054,16 @@ fn update_discord_rpc(
         if is_playing {
             let details = format!("{}", title);
             let state_str = format!("by {}", artist);
-            
+
             let mut activity = activity::Activity::new()
                 .details(&details)
                 .state(&state_str)
                 .activity_type(activity::ActivityType::Listening)
-                .assets(activity::Assets::new()
-                    .large_image("icon")
-                    .large_text("OpenMusic"));
+                .assets(
+                    activity::Assets::new()
+                        .large_image("icon")
+                        .large_text("OpenMusic"),
+                );
 
             if let Ok(now) = SystemTime::now().duration_since(UNIX_EPOCH) {
                 let start_time = now.as_secs() as i64 - current_time as i64;
@@ -644,8 +1102,6 @@ fn hide_window(app: tauri::AppHandle) -> Result<(), String> {
     Ok(())
 }
 
-
-
 fn start_asset_server(_port: u16) {
     std::thread::spawn(move || {
         let server = Server::http("0.0.0.0:1422").expect("Failed to start asset server");
@@ -667,9 +1123,16 @@ fn handle_request(request: tiny_http::Request) {
     // Handle CORS preflight
     if request.method() == &tiny_http::Method::Options {
         let response = Response::empty(204)
-            .with_header(Header::from_bytes(&b"Access-Control-Allow-Origin"[..], &b"*"[..]).unwrap())
-            .with_header(Header::from_bytes(&b"Access-Control-Allow-Methods"[..], &b"GET, OPTIONS"[..]).unwrap())
-            .with_header(Header::from_bytes(&b"Access-Control-Allow-Headers"[..], &b"*"[..]).unwrap());
+            .with_header(
+                Header::from_bytes(&b"Access-Control-Allow-Origin"[..], &b"*"[..]).unwrap(),
+            )
+            .with_header(
+                Header::from_bytes(&b"Access-Control-Allow-Methods"[..], &b"GET, OPTIONS"[..])
+                    .unwrap(),
+            )
+            .with_header(
+                Header::from_bytes(&b"Access-Control-Allow-Headers"[..], &b"*"[..]).unwrap(),
+            );
         let _ = request.respond(response);
         return;
     }
@@ -683,9 +1146,11 @@ fn handle_request(request: tiny_http::Request) {
     let path_query = url.path();
     let query = url.query().unwrap_or("");
     let is_thumb = query.contains("thumb=1");
-    
-    let decoded_path = percent_decode_str(path_query).decode_utf8_lossy().to_string();
-    
+
+    let decoded_path = percent_decode_str(path_query)
+        .decode_utf8_lossy()
+        .to_string();
+
     #[cfg(windows)]
     let mut decoded_path = decoded_path;
     #[cfg(windows)]
@@ -699,7 +1164,7 @@ fn handle_request(request: tiny_http::Request) {
         let _ = request.respond(Response::from_string("Not Found").with_status_code(404));
         return;
     }
-    
+
     let final_path = path;
 
     // Handle cover art extraction
@@ -718,8 +1183,12 @@ fn handle_request(request: tiny_http::Request) {
             if cp.exists() {
                 if let Ok(data) = fs::read(cp) {
                     let mut response = Response::from_data(data);
-                    response.add_header(Header::from_bytes(&b"Content-Type"[..], b"image/jpeg").unwrap());
-                    response.add_header(Header::from_bytes(&b"Access-Control-Allow-Origin"[..], &b"*"[..]).unwrap());
+                    response.add_header(
+                        Header::from_bytes(&b"Content-Type"[..], b"image/jpeg").unwrap(),
+                    );
+                    response.add_header(
+                        Header::from_bytes(&b"Access-Control-Allow-Origin"[..], &b"*"[..]).unwrap(),
+                    );
                     let _ = request.respond(response);
                     return;
                 }
@@ -732,23 +1201,37 @@ fn handle_request(request: tiny_http::Request) {
             if let Some(t) = tag {
                 if let Some(pic) = t.pictures().first() {
                     let raw_data = pic.data();
-                    
+
                     // Compress to 256x256
-                    if let Ok(reader) = ImageReader::new(Cursor::new(raw_data)).with_guessed_format() {
+                    if let Ok(reader) =
+                        ImageReader::new(Cursor::new(raw_data)).with_guessed_format()
+                    {
                         if let Ok(img) = reader.decode() {
                             let resized = img.thumbnail(256, 256);
                             let mut buffer = Cursor::new(Vec::new());
-                            if resized.write_to(&mut buffer, image::ImageFormat::Jpeg).is_ok() {
+                            if resized
+                                .write_to(&mut buffer, image::ImageFormat::Jpeg)
+                                .is_ok()
+                            {
                                 let compressed_data = buffer.into_inner();
-                                
+
                                 // Cache the result
                                 if let Some(ref cp) = cached_path {
                                     let _ = fs::write(cp, &compressed_data);
                                 }
 
                                 let mut response = Response::from_data(compressed_data);
-                                response.add_header(Header::from_bytes(&b"Content-Type"[..], b"image/jpeg").unwrap());
-                                response.add_header(Header::from_bytes(&b"Access-Control-Allow-Origin"[..], &b"*"[..]).unwrap());
+                                response.add_header(
+                                    Header::from_bytes(&b"Content-Type"[..], b"image/jpeg")
+                                        .unwrap(),
+                                );
+                                response.add_header(
+                                    Header::from_bytes(
+                                        &b"Access-Control-Allow-Origin"[..],
+                                        &b"*"[..],
+                                    )
+                                    .unwrap(),
+                                );
                                 let _ = request.respond(response);
                                 return;
                             }
@@ -761,7 +1244,11 @@ fn handle_request(request: tiny_http::Request) {
         return;
     }
 
-    let ext = final_path.extension().and_then(|e| e.to_str()).unwrap_or("").to_lowercase();
+    let ext = final_path
+        .extension()
+        .and_then(|e| e.to_str())
+        .unwrap_or("")
+        .to_lowercase();
     let content_type = match ext.as_str() {
         "mp3" => "audio/mpeg",
         "flac" => "audio/flac",
@@ -798,26 +1285,44 @@ fn handle_request(request: tiny_http::Request) {
     }
 
     if let Ok(mut file) = fs::File::open(final_path) {
-        use std::io::{Seek, SeekFrom, Read};
+        use std::io::{Read, Seek, SeekFrom};
         let file_len = file.metadata().map(|m| m.len()).unwrap_or(0);
         let end = range_end.unwrap_or(file_len.saturating_sub(1));
-        let length = if end >= range_start { end - range_start + 1 } else { 0 };
+        let length = if end >= range_start {
+            end - range_start + 1
+        } else {
+            0
+        };
 
         if is_range {
             let _ = file.seek(SeekFrom::Start(range_start));
             let mut buffer = vec![0; length as usize];
             let _ = file.read_exact(&mut buffer);
-            
+
             let mut response = Response::from_data(buffer).with_status_code(206);
-            response.add_header(Header::from_bytes(&b"Content-Type"[..], content_type.as_bytes()).unwrap());
-            response.add_header(Header::from_bytes(&b"Access-Control-Allow-Origin"[..], &b"*"[..]).unwrap());
+            response.add_header(
+                Header::from_bytes(&b"Content-Type"[..], content_type.as_bytes()).unwrap(),
+            );
+            response.add_header(
+                Header::from_bytes(&b"Access-Control-Allow-Origin"[..], &b"*"[..]).unwrap(),
+            );
             response.add_header(Header::from_bytes(&b"Accept-Ranges"[..], &b"bytes"[..]).unwrap());
-            response.add_header(Header::from_bytes(&b"Content-Range"[..], format!("bytes {}-{}/{}", range_start, end, file_len).as_bytes()).unwrap());
+            response.add_header(
+                Header::from_bytes(
+                    &b"Content-Range"[..],
+                    format!("bytes {}-{}/{}", range_start, end, file_len).as_bytes(),
+                )
+                .unwrap(),
+            );
             let _ = request.respond(response);
         } else {
             let mut response = Response::from_file(file);
-            response.add_header(Header::from_bytes(&b"Content-Type"[..], content_type.as_bytes()).unwrap());
-            response.add_header(Header::from_bytes(&b"Access-Control-Allow-Origin"[..], &b"*"[..]).unwrap());
+            response.add_header(
+                Header::from_bytes(&b"Content-Type"[..], content_type.as_bytes()).unwrap(),
+            );
+            response.add_header(
+                Header::from_bytes(&b"Access-Control-Allow-Origin"[..], &b"*"[..]).unwrap(),
+            );
             response.add_header(Header::from_bytes(&b"Accept-Ranges"[..], &b"bytes"[..]).unwrap());
             let _ = request.respond(response);
         }
@@ -829,6 +1334,7 @@ fn handle_request(request: tiny_http::Request) {
 fn main() {
     start_asset_server(1422);
     tauri::Builder::default()
+        .plugin(tauri_plugin_shell::init())
         .plugin(tauri_plugin_localhost::Builder::new(1421).build())
         .plugin(tauri_plugin_dialog::init())
         .plugin(tauri_plugin_fs::init())
@@ -838,14 +1344,23 @@ fn main() {
                 let _ = window.set_focus();
             }
         }))
-        .manage(DiscordState { client: Mutex::new(None) })
-        .manage(AppState { tray_enabled: AtomicBool::new(true) })
+        .manage(DiscordState {
+            client: Mutex::new(None),
+        })
+        .manage(AppState {
+            tray_enabled: AtomicBool::new(true),
+        })
+        .manage(HarbourState {
+            token: Mutex::new(None),
+            token_expiry: Mutex::new(0),
+        })
         .setup(|app| {
             let quit_i = MenuItem::with_id(app, "quit", "Quit", true, None::<&str>).unwrap();
-            let show_i = MenuItem::with_id(app, "show", "Show OpenMusic", true, None::<&str>).unwrap();
+            let show_i =
+                MenuItem::with_id(app, "show", "Show OpenMusic", true, None::<&str>).unwrap();
             let menu = Menu::with_items(app, &[&show_i, &quit_i]).unwrap();
             let icon = app.default_window_icon().unwrap().clone();
-            
+
             let tray = TrayIconBuilder::with_id("main_tray")
                 .icon(icon)
                 .menu(&menu)
@@ -873,7 +1388,7 @@ fn main() {
                 })
                 .build(app)
                 .unwrap();
-                
+
             let _ = tray.set_visible(true); // default to true
             Ok(())
         })
@@ -895,6 +1410,10 @@ fn main() {
             toggle_fullscreen,
             import_files,
             import_playlist,
+            harbour_search,
+            download_track,
+            ensure_dependencies,
+            fetch_track_metadata,
         ])
         .on_window_event(|window, event| {
             if let tauri::WindowEvent::CloseRequested { api, .. } = event {
@@ -906,5 +1425,5 @@ fn main() {
             }
         })
         .run(tauri::generate_context!())
-        .expect("error while running OpenMusic v0.5.9");
+        .expect("error while running OpenMusic v0.6.0");
 }

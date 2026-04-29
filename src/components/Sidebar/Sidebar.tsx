@@ -1,7 +1,7 @@
 import React, { useState } from "react";
 import {
   Home, Library, Settings, Music2, Plus, Trash2,
-  ListMusic, ChevronRight, Loader2, PlayCircle,
+  ListMusic, ChevronRight, Loader2, PlayCircle, Globe,
 } from "lucide-react";
 import { useStore } from "../../store";
 import { useLibrary } from "../../hooks/useLibrary";
@@ -108,6 +108,13 @@ export function Sidebar() {
           view="library"
           active={activeView === "library"}
           onClick={() => setActiveView("library")}
+        />
+        <NavItem
+          icon={<Globe size={15} />}
+          label="Harbour"
+          view="harbour"
+          active={activeView === "harbour"}
+          onClick={() => setActiveView("harbour")}
         />
         <NavItem
           icon={<Settings size={15} />}

@@ -1,0 +1,81 @@
+    Checking openmusic v0.6.0 (/home/xeoniii/Work/OpenMusic/openmusic/src-tauri)
+error: cannot find macro `__cmd__fetch_track_metadata` in this scope
+    --> src/main.rs:1380:13
+     |
+ 354 | #[tauri::command]
+     | ----------------- similarly named macro `__cmd__get_track_metadata` defined here
+...
+1380 |             fetch_track_metadata,
+     |             ^^^^^^^^^^^^^^^^^^^^
+     |
+help: a macro with a similar name exists
+     |
+1380 -             fetch_track_metadata,
+1380 +             __cmd__get_track_metadata,
+     |
+
+warning: unused imports: `HeaderMap`, `HeaderValue`, and `USER_AGENT`
+  --> src/main.rs:29:23
+   |
+29 | use reqwest::header::{HeaderMap, HeaderValue, USER_AGENT};
+   |                       ^^^^^^^^^  ^^^^^^^^^^^  ^^^^^^^^^^
+   |
+   = note: `#[warn(unused_imports)]` (part of `#[warn(unused)]`) on by default
+
+warning: unused import: `std::collections::HashMap`
+  --> src/main.rs:32:5
+   |
+32 | use std::collections::HashMap;
+   |     ^^^^^^^^^^^^^^^^^^^^^^^^^
+
+warning: unused import: `tauri_plugin_shell::ShellExt`
+   --> src/main.rs:480:9
+    |
+480 |     use tauri_plugin_shell::ShellExt;
+    |         ^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+error[E0308]: mismatched types
+   --> src/main.rs:806:24
+    |
+806 |                 if let Some(t_type) = tagged_file.primary_tag_type() {
+    |                        ^^^^^^^^^^^^   ------------------------------ this expression has type `TagType`
+    |                        |
+    |                        expected `TagType`, found `Option<_>`
+    |
+    = note: expected enum `TagType`
+               found enum `std::option::Option<_>`
+
+error[E0599]: no function or associated item named `new` found for struct `lofty::Picture` in the current scope
+   --> src/main.rs:824:44
+    |
+824 |                     let picture = Picture::new(
+    |                                            ^^^ function or associated item not found in `lofty::Picture`
+    |
+note: if you're trying to build a new `lofty::Picture` consider using one of the following associated functions:
+      lofty::Picture::from_reader
+      lofty::Picture::new_unchecked
+      lofty::Picture::from_ape_bytes
+   --> /home/xeoniii/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/lofty-0.18.2/src/picture.rs:478:2
+    |
+478 | /     pub fn from_reader<R>(reader: &mut R) -> Result<Self>
+479 | |     where
+480 | |         R: Read,
+    | |________________^
+...
+504 | /     pub fn new_unchecked(
+505 | |         pic_type: PictureType,
+506 | |         mime_type: Option<MimeType>,
+507 | |         description: Option<String>,
+508 | |         data: Vec<u8>,
+509 | |     ) -> Self {
+    | |_____________^
+...
+750 |       pub fn from_ape_bytes(key: &str, bytes: &[u8]) -> Result<Self> {
+    |       ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+help: there is a method `ne` with a similar name, but with different arguments
+   --> /rustc/59807616e1fa2540724bfbac14d7976d7e4a3860/library/core/src/cmp.rs:264:4
+
+Some errors have detailed explanations: E0308, E0599.
+For more information about an error, try `rustc --explain E0308`.
+warning: `openmusic` (bin "openmusic") generated 3 warnings
+error: could not compile `openmusic` (bin "openmusic") due to 3 previous errors; 3 warnings emitted
