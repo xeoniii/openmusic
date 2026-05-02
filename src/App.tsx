@@ -1,7 +1,7 @@
 import React, { useEffect } from "react";
 import { useStore } from "./store";
 import { useLibrary } from "./hooks/useLibrary";
-import { getAppPaths, setTrayEnabled, toggleFullscreen } from "./utils/tauriApi";
+import { getAppPaths, setTrayEnabled, toggleFullscreen, fetchTrackMetadata } from "./utils/tauriApi";
 import { getCurrentWindow } from "@tauri-apps/api/window";
 import { invoke } from "@tauri-apps/api/core";
 import { Sidebar } from "./components/Sidebar/Sidebar";
@@ -92,6 +92,54 @@ export default function App() {
   }, []);
 
 
+
+  // Background worker for missing covers
+  useEffect(() => {
+    let active = true;
+
+    async function processMissingCovers() {
+      const sleep = (ms: number) => new Promise(resolve => setTimeout(resolve, ms));
+      
+      while (active) {
+        const state = useStore.getState();
+        const tracks = state.tracks;
+        const cache = state.discordCoverCache;
+        
+        let foundAny = false;
+        
+        for (const track of tracks) {
+          if (!active) return;
+          
+          if (cache[track.id] === undefined) {
+            try {
+              const metadata = await fetchTrackMetadata(`${track.title} ${track.artist}`);
+              if (metadata && metadata.coverArt) {
+                useStore.getState().setDiscordCoverCache(track.id, metadata.coverArt);
+              } else {
+                useStore.getState().setDiscordCoverCache(track.id, "none");
+              }
+            } catch (e) {
+               useStore.getState().setDiscordCoverCache(track.id, "none");
+            }
+            
+            foundAny = true;
+            await sleep(2000); // 2 second delay to avoid rate limits
+            break; // Re-evaluate state
+          }
+        }
+        
+        if (!foundAny) {
+          await sleep(10000);
+        }
+      }
+    }
+
+    processMissingCovers();
+
+    return () => {
+      active = false;
+    };
+  }, []);
 
   const showPlayerBar = activeView !== "player";
 

@@ -1039,6 +1039,9 @@ fn update_discord_rpc(
     artist: String,
     is_playing: bool,
     current_time: f64,
+    duration: f64,
+    playlist_name: String,
+    cover_url: Option<String>,
 ) -> Result<(), String> {
     let mut client_lock = state.client.lock().map_err(|e| e.to_string())?;
 
@@ -1051,32 +1054,50 @@ fn update_discord_rpc(
     }
 
     if let Some(client) = client_lock.as_mut() {
+        let details = format!("{}", title);
+        let state_str = format!("by {}", artist);
+
+        let small_text_str = if is_playing {
+            "Playing".to_string()
+        } else {
+            let mins = (current_time / 60.0).floor() as u32;
+            let secs = (current_time % 60.0).floor() as u32;
+            format!("Paused at {:02}:{:02}", mins, secs)
+        };
+
+        let large_image = cover_url.unwrap_or_else(|| "cover".to_string());
+        let mut activity = activity::Activity::new()
+            .details(&details)
+            .state(&state_str)
+            .activity_type(activity::ActivityType::Listening)
+            .assets(
+                activity::Assets::new()
+                    .large_image(&large_image)
+                    .small_image("icon")
+                    .large_text(&playlist_name)
+                    .small_text(&small_text_str),
+            )
+            .buttons(vec![activity::Button::new(
+                "Download OpenMusic",
+                "https://xeoniii.github.io/openmusic",
+            )]);
+
         if is_playing {
-            let details = format!("{}", title);
-            let state_str = format!("by {}", artist);
-
-            let mut activity = activity::Activity::new()
-                .details(&details)
-                .state(&state_str)
-                .activity_type(activity::ActivityType::Listening)
-                .assets(
-                    activity::Assets::new()
-                        .large_image("icon")
-                        .large_text("OpenMusic"),
-                );
-
             if let Ok(now) = SystemTime::now().duration_since(UNIX_EPOCH) {
                 let start_time = now.as_secs() as i64 - current_time as i64;
-                activity = activity.timestamps(activity::Timestamps::new().start(start_time));
+                let mut timestamps = activity::Timestamps::new().start(start_time);
+                
+                if duration > 0.0 {
+                    let end_time = start_time + duration as i64;
+                    timestamps = timestamps.end(end_time);
+                }
+                
+                activity = activity.timestamps(timestamps);
             }
+        }
 
-            if client.set_activity(activity).is_err() {
-                *client_lock = None;
-            }
-        } else {
-            if client.clear_activity().is_err() {
-                *client_lock = None;
-            }
+        if client.set_activity(activity).is_err() {
+            *client_lock = None;
         }
     }
 
@@ -1296,23 +1317,25 @@ fn handle_request(request: tiny_http::Request) {
 
         if is_range {
             let _ = file.seek(SeekFrom::Start(range_start));
-            let mut buffer = vec![0; length as usize];
-            let _ = file.read_exact(&mut buffer);
+            let chunked_reader = file.take(length as u64);
 
-            let mut response = Response::from_data(buffer).with_status_code(206);
-            response.add_header(
+            let headers = vec![
                 Header::from_bytes(&b"Content-Type"[..], content_type.as_bytes()).unwrap(),
-            );
-            response.add_header(
                 Header::from_bytes(&b"Access-Control-Allow-Origin"[..], &b"*"[..]).unwrap(),
-            );
-            response.add_header(Header::from_bytes(&b"Accept-Ranges"[..], &b"bytes"[..]).unwrap());
-            response.add_header(
+                Header::from_bytes(&b"Accept-Ranges"[..], &b"bytes"[..]).unwrap(),
                 Header::from_bytes(
                     &b"Content-Range"[..],
                     format!("bytes {}-{}/{}", range_start, end, file_len).as_bytes(),
                 )
                 .unwrap(),
+            ];
+
+            let response = tiny_http::Response::new(
+                tiny_http::StatusCode(206),
+                headers,
+                chunked_reader,
+                Some(length as usize),
+                None,
             );
             let _ = request.respond(response);
         } else {

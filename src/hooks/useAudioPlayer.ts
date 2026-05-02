@@ -1,6 +1,6 @@
 import { useEffect, useRef, useCallback } from "react";
 import { useStore } from "../store";
-import { readAudioFile, updateDiscordRpc, clearDiscordRpc } from "../utils/tauriApi";
+import { readAudioFile, updateDiscordRpc, clearDiscordRpc, fetchTrackMetadata } from "../utils/tauriApi";
 
 const audio = new Audio();
 audio.preload = "auto";
@@ -66,17 +66,81 @@ export function useAudioPlayer() {
     audio.volume = volume;
   }, [volume]);
   
+  const currentCoverUrlRef = useRef<string | undefined>(undefined);
+  const lastTrackIdRef = useRef<string | null>(null);
+
   useEffect(() => {
     if (currentTrack) {
-      updateDiscordRpc(currentTrack.title, currentTrack.artist, isPlaying, audio.currentTime).catch(() => {});
+      const state = useStore.getState();
+      let playlistName = "OpenMusic";
+      if (state.activePlaylistId) {
+        const pl = state.playlists.find(p => p.id === state.activePlaylistId);
+        if (pl) playlistName = pl.name;
+      }
+
+      if (lastTrackIdRef.current !== currentTrack.id) {
+        lastTrackIdRef.current = currentTrack.id;
+
+        if (state.discordCoverCache[currentTrack.id]) {
+          let cached = state.discordCoverCache[currentTrack.id];
+          if (cached === "none") cached = undefined as any;
+          currentCoverUrlRef.current = cached;
+          updateDiscordRpc(currentTrack.title, currentTrack.artist, isPlaying, audio.currentTime, currentTrack.duration || audio.duration || 0, playlistName, currentCoverUrlRef.current).catch(() => {});
+        } else {
+          currentCoverUrlRef.current = undefined;
+          updateDiscordRpc(currentTrack.title, currentTrack.artist, isPlaying, audio.currentTime, currentTrack.duration || audio.duration || 0, playlistName, undefined).catch(() => {});
+
+          fetchTrackMetadata(`${currentTrack.title} ${currentTrack.artist}`).then(metadata => {
+            if (metadata.coverArt) {
+              useStore.getState().setDiscordCoverCache(currentTrack.id, metadata.coverArt);
+              const currentState = useStore.getState();
+              if (currentState.currentTrack?.id === currentTrack.id) {
+                currentCoverUrlRef.current = metadata.coverArt;
+                updateDiscordRpc(currentTrack.title, currentTrack.artist, isPlaying, audio.currentTime, currentTrack.duration || audio.duration || 0, playlistName, metadata.coverArt).catch(() => {});
+              }
+            } else {
+              useStore.getState().setDiscordCoverCache(currentTrack.id, "none");
+            }
+          }).catch(() => {});
+        }
+
+        // Prefetch next track's cover
+        const queue = state.queue;
+        if (queue.length > 0) {
+          let nextIndex = state.queueIndex + 1;
+          if (nextIndex >= queue.length) nextIndex = 0;
+          const nextTrack = queue[nextIndex];
+          if (nextTrack && !state.discordCoverCache[nextTrack.id]) {
+            fetchTrackMetadata(`${nextTrack.title} ${nextTrack.artist}`).then(metadata => {
+              if (metadata.coverArt) {
+                useStore.getState().setDiscordCoverCache(nextTrack.id, metadata.coverArt);
+              } else {
+                useStore.getState().setDiscordCoverCache(nextTrack.id, "none");
+              }
+            }).catch(() => {
+              useStore.getState().setDiscordCoverCache(nextTrack.id, "none");
+            });
+          }
+        }
+      } else {
+        updateDiscordRpc(currentTrack.title, currentTrack.artist, isPlaying, audio.currentTime, currentTrack.duration || audio.duration || 0, playlistName, currentCoverUrlRef.current).catch(() => {});
+      }
     } else {
+      lastTrackIdRef.current = null;
+      currentCoverUrlRef.current = undefined;
       clearDiscordRpc().catch(() => {});
     }
   }, [currentTrack?.id, isPlaying]);
 
   useEffect(() => {
     const onTimeUpdate = () => setCurrentTime(audio.currentTime);
-    const onDurationChange = () => setDuration(audio.duration || 0);
+    const onDurationChange = () => {
+      let d = audio.duration || 0;
+      if (!isFinite(d)) {
+        d = useStore.getState().currentTrack?.duration || 0;
+      }
+      setDuration(d);
+    };
     const onEnded = () => {
       if (repeatMode === "one") {
         audio.currentTime = 0;
@@ -119,7 +183,12 @@ export function useAudioPlayer() {
     const state = useStore.getState();
     const track = state.currentTrack;
     if (track) {
-      updateDiscordRpc(track.title, track.artist, state.isPlaying, time).catch(() => {});
+      let playlistName = "OpenMusic";
+      if (state.activePlaylistId) {
+        const pl = state.playlists.find(p => p.id === state.activePlaylistId);
+        if (pl) playlistName = pl.name;
+      }
+      updateDiscordRpc(track.title, track.artist, state.isPlaying, time, track.duration || audio.duration || 0, playlistName, currentCoverUrlRef.current).catch(() => {});
     }
   }, []);
 

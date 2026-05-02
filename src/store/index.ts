@@ -45,6 +45,7 @@ interface LibrarySlice {
   musicDir: string;
   playlistsDir: string;
   coversDir: string;
+  discordCoverCache: Record<string, string>;
 
   setTracks: (tracks: Track[]) => void;
   updateTrack: (updated: Track) => void;
@@ -57,6 +58,7 @@ interface LibrarySlice {
   setMusicDir: (dir: string) => void;
   setPlaylistsDir: (dir: string) => void;
   setCoversDir: (dir: string) => void;
+  setDiscordCoverCache: (id: string, url: string) => void;
 }
 
 // ── UI / Settings Slice ──────────────────────────────────────────────────────
@@ -172,6 +174,7 @@ export const useStore = create<Store>()(
       musicDir: "",
       playlistsDir: "",
       coversDir: "",
+      discordCoverCache: {},
 
       setTracks: (tracks) => set({ tracks }),
       updateTrack: (updated: Track) =>
@@ -195,6 +198,7 @@ export const useStore = create<Store>()(
       setMusicDir: (dir) => set({ musicDir: dir }),
       setPlaylistsDir: (dir) => set({ playlistsDir: dir }),
       setCoversDir: (dir) => set({ coversDir: dir }),
+      setDiscordCoverCache: (id, url) => set((s) => ({ discordCoverCache: { ...s.discordCoverCache, [id]: url } })),
 
       // ── UI ──────────────────────────────────────────────────────────────────
       activeView: "home",
@@ -262,6 +266,7 @@ export const useStore = create<Store>()(
         guiScale: s.guiScale,
         trayEnabled: s.trayEnabled,
         libraryViewMode: s.libraryViewMode,
+        discordCoverCache: s.discordCoverCache,
       }),
     }
   )

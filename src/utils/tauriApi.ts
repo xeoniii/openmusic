@@ -168,9 +168,12 @@ export async function updateDiscordRpc(
   title: string,
   artist: string,
   isPlaying: boolean,
-  currentTime: number
+  currentTime: number,
+  duration: number,
+  playlistName: string,
+  coverUrl?: string
 ): Promise<void> {
-  await invoke("update_discord_rpc", { title, artist, isPlaying, currentTime });
+  await invoke("update_discord_rpc", { title, artist, isPlaying, currentTime, duration, playlistName, coverUrl });
 }
 
 export async function clearDiscordRpc(): Promise<void> {
