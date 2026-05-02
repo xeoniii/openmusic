@@ -1448,5 +1448,5 @@ fn main() {
             }
         })
         .run(tauri::generate_context!())
-        .expect("error while running OpenMusic v0.6.0");
+        .expect("error while running OpenMusic v0.6.1");
 }
