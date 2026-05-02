@@ -2,7 +2,7 @@
   "$schema": "../node_modules/@tauri-apps/cli/schema.json",
   "productName": "OpenMusic",
   "version": "0.6.1",
-  "identifier": "com.xeoniii.openmusic",
+  "identifier": "com.openmusic.app",
   "build": {
     "beforeDevCommand": "npm run dev",
     "beforeBuildCommand": "npm run build",
