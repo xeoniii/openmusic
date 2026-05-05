@@ -1,6 +1,7 @@
 import React, { useMemo, useState, useEffect, useCallback } from "react";
 import { Play, Music2, Disc3, Clock, FolderOpen, Shuffle, ChevronRight } from "lucide-react";
 import { useStore } from "../../store";
+import { useShallow } from "zustand/react/shallow";
 import { MusicCard } from "./MusicCard";
 import { formatDuration, pluralize, shuffleArray } from "../../utils/helpers";
 import { getCoverArt } from "../../utils/tauriApi";
@@ -31,7 +32,14 @@ function StatCard({
 
 export function HomeView() {
   const { tracks, isScanning, setQueue, setIsPlaying, shuffleEnabled, toggleShuffle } =
-    useStore();
+    useStore(useShallow((s) => ({
+      tracks: s.tracks,
+      isScanning: s.isScanning,
+      setQueue: s.setQueue,
+      setIsPlaying: s.setIsPlaying,
+      shuffleEnabled: s.shuffleEnabled,
+      toggleShuffle: s.toggleShuffle,
+    })));
 
   const [heroCover, setHeroCover] = useState<string | null>(null);
 

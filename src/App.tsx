@@ -1,5 +1,6 @@
 import React, { useEffect } from "react";
 import { useStore } from "./store";
+import { useShallow } from "zustand/react/shallow";
 import { useLibrary } from "./hooks/useLibrary";
 import { useMediaControls } from "./hooks/useMediaControls";
 import { getAppPaths, setTrayEnabled, toggleFullscreen, fetchTrackMetadata } from "./utils/tauriApi";
@@ -33,7 +34,18 @@ export default function App() {
   const {
     activeView, accentColor, theme, musicDir, playlistsDir, coversDir,
     setMusicDir, setPlaylistsDir, setCoversDir, guiScale
-  } = useStore();
+  } = useStore(useShallow((s) => ({
+    activeView: s.activeView,
+    accentColor: s.accentColor,
+    theme: s.theme,
+    musicDir: s.musicDir,
+    playlistsDir: s.playlistsDir,
+    coversDir: s.coversDir,
+    setMusicDir: s.setMusicDir,
+    setPlaylistsDir: s.setPlaylistsDir,
+    setCoversDir: s.setCoversDir,
+    guiScale: s.guiScale,
+  })));
   const { initialize } = useLibrary();
 
   // OS media controls (MPRIS / SMTC / Now Playing)

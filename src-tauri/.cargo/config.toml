@@ -1,6 +1,15 @@
 [target.x86_64-unknown-linux-gnu]
-rustflags = ["-C", "link-arg=-fuse-ld=lld"]
+linker = "clang"
+rustflags = ["-C", "link-arg=-fuse-ld=lld", "-C", "link-arg=-Wl,--threads=2"]
 
-# For Windows (if using the MSVC toolchain)
-[target.x86_64-pc-windows-msvc]
-rustflags = ["-C", "link-arg=-fuse-ld=lld"]
+[profile.dev]
+opt-level = 0
+debug = 0
+incremental = true
+codegen-units = 16
+
+[profile.release]
+opt-level = 3
+lto = false
+codegen-units = 16
+panic = "abort"

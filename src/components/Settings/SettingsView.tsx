@@ -4,6 +4,7 @@ import {
   Info, Music2, Volume2, FolderInput, ZoomIn, Sun, Moon,
 } from "lucide-react";
 import { useStore } from "../../store";
+import { useShallow } from "zustand/react/shallow";
 import { useLibrary } from "../../hooks/useLibrary";
 import { ACCENT_PRESETS, pluralize } from "../../utils/helpers";
 import { setTrayEnabled } from "../../utils/tauriApi";
@@ -48,7 +49,21 @@ export function SettingsView() {
     setTrayEnabled,
     theme,
     setTheme,
-  } = useStore();
+  } = useStore(useShallow((s) => ({
+    accentColor: s.accentColor,
+    tracks: s.tracks,
+    volume: s.volume,
+    setAccentColor: s.setAccentColor,
+    setVolume: s.setVolume,
+    musicDir: s.musicDir,
+    playlistsDir: s.playlistsDir,
+    guiScale: s.guiScale,
+    setGuiScale: s.setGuiScale,
+    trayEnabled: s.trayEnabled,
+    setTrayEnabled: s.setTrayEnabled,
+    theme: s.theme,
+    setTheme: s.setTheme,
+  })));
 
   const { changeMusicDirectory, changePlaylistsDirectory, rescanDirectory } = useLibrary();
   const [scanning, setScanning] = useState(false);
@@ -304,7 +319,7 @@ export function SettingsView() {
         {/* ── About ─────────────────────────────────────────────────────────────── */}
         <div className="w-full text-center py-8 mt-4 border-t border-border-subtle">
           <p className="text-xs text-text-muted flex flex-col gap-1">
-            <span className="font-display font-black text-sm text-text-secondary tracking-tight">OpenMusic <span className="text-accent">v0.6.3</span></span>
+            <span className="font-display font-black text-sm text-text-secondary tracking-tight">OpenMusic <span className="text-accent">v0.6.4</span></span>
             <span>Crafted with love for high-quality audio.</span>
             <span>Made by xeoniii.dev</span>
             <span className="mt-2 opacity-60">Build ID: {new Date().toISOString().split('T')[0].replace(/-/g, '')}</span>

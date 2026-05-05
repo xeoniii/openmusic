@@ -303,21 +303,18 @@ input[type="range"]::-webkit-slider-thumb:hover {
   background: var(--surface-raised);
   border: 1px solid var(--border-subtle);
   transition: 
-    transform 0.4s cubic-bezier(0.2, 1, 0.2, 1),
-    box-shadow 0.4s cubic-bezier(0.2, 1, 0.2, 1),
+    box-shadow 0.25s ease,
     border-color 0.2s ease,
     background 0.3s ease;
   cursor: pointer;
   position: relative;
-  backface-visibility: hidden;
 }
 
 .music-card:hover {
-  transform: translateY(-8px);
-  border-color: rgba(255,255,255,0.15);
+  border-color: var(--accent);
   box-shadow: 
-    0 20px 40px rgba(0,0,0,0.2),
-    0 0 20px var(--accent-glow);
+    0 4px 20px rgba(0,0,0,0.3),
+    0 0 15px var(--accent-glow);
   z-index: 10;
 }
 
@@ -410,7 +407,6 @@ input[type="range"]::-webkit-slider-thumb:hover {
   display: grid;
   gap: 16px;
   grid-template-columns: repeat(auto-fill, minmax(180px, 1fr));
-  transition: all 0.3s ease;
 }
 
 .music-list {

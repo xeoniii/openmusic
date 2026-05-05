@@ -7,6 +7,7 @@
 
 import { useCallback } from "react";
 import { useStore } from "../store";
+import { useShallow } from "zustand/react/shallow";
 import {
   scanMusicDirectory,
   listPlaylists,
@@ -31,7 +32,18 @@ export function useLibrary() {
     setScanning,
     setMusicDir,
     setPlaylistsDir,
-  } = useStore();
+  } = useStore(useShallow((s) => ({
+    musicDir: s.musicDir,
+    playlistsDir: s.playlistsDir,
+    setTracks: s.setTracks,
+    setPlaylists: s.setPlaylists,
+    addPlaylist: s.addPlaylist,
+    updatePlaylist: s.updatePlaylist,
+    removePlaylist: s.removePlaylist,
+    setScanning: s.setScanning,
+    setMusicDir: s.setMusicDir,
+    setPlaylistsDir: s.setPlaylistsDir,
+  })));
 
   const initialize = useCallback(async () => {
     try {

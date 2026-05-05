@@ -4,6 +4,7 @@ import { invoke } from "@tauri-apps/api/core";
 import { listen } from "@tauri-apps/api/event";
 import { useLibrary } from "../../hooks/useLibrary";
 import { useStore } from "../../store";
+import { useShallow } from "zustand/react/shallow";
 
 interface HarbourSearchResult {
   id: string;
@@ -23,7 +24,12 @@ export default function HarbourView() {
   const [downloadingIds, setDownloadingIds] = useState<Set<string>>(new Set());
   const [provider, setProvider] = useState("itunes");
   const [preparing, setPreparing] = useState(true);
-  const { musicDir, addNotification, updateNotification, removeNotification } = useStore();
+  const { musicDir, addNotification, updateNotification, removeNotification } = useStore(useShallow((s) => ({
+    musicDir: s.musicDir,
+    addNotification: s.addNotification,
+    updateNotification: s.updateNotification,
+    removeNotification: s.removeNotification,
+  })));
   const { rescanDirectory } = useLibrary();
 
   useEffect(() => {
@@ -185,7 +191,7 @@ export default function HarbourView() {
                 key={track.id}
                 className="group flex items-center gap-4 p-3 rounded-xl bg-surface-raised border border-border-subtle hover:bg-surface-overlay hover:border-accent/30 transition-all"
               >
-                <div className="relative w-16 h-16 rounded-lg overflow-hidden flex-shrink-0 bg-surface-base shadow-lg shadow-black/5">
+                <div className="relative w-24 h-24 rounded-xl overflow-hidden flex-shrink-0 bg-surface-base shadow-lg shadow-black/10">
                   {track.cover_art ? (
                     <>
                       <img 
@@ -198,17 +204,15 @@ export default function HarbourView() {
                         }}
                       />
                       <div className="fallback-icon hidden w-full h-full flex items-center justify-center text-text-muted">
-                        <Music size={24} />
+                        <Music size={28} />
                       </div>
                     </>
                   ) : (
-                    <div className="w-full h-full flex items-center justify-center text-text-muted">
-                      <Music size={24} />
-                    </div>
+                      <Music size={28} />
                   )}
                   {downloadingIds.has(track.id) && (
                     <div className="absolute inset-0 bg-surface-base/60 backdrop-blur-sm flex items-center justify-center">
-                      <Loader2 size={24} className="animate-spin text-accent" />
+                      <Loader2 size={28} className="animate-spin text-accent" />
                     </div>
                   )}
                 </div>

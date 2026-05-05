@@ -27,7 +27,8 @@ function parseLRC(text: string): LyricLine[] {
 }
 
 export function Lyrics() {
-  const { currentTrack, currentTime } = useStore();
+  const currentTrack = useStore(s => s.currentTrack);
+  const currentTime = useStore(s => s.currentTime);
   const activeRef = useRef<HTMLDivElement>(null);
   const containerRef = useRef<HTMLDivElement>(null);
 

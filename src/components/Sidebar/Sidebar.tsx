@@ -4,6 +4,7 @@ import {
   ListMusic, ChevronRight, Loader2, PlayCircle, Globe,
 } from "lucide-react";
 import { useStore } from "../../store";
+import { useShallow } from "zustand/react/shallow";
 import { useLibrary } from "../../hooks/useLibrary";
 import type { ViewId } from "../../types";
 
@@ -35,7 +36,14 @@ export function Sidebar() {
     isScanning,
     setActiveView,
     setActivePlaylist,
-  } = useStore();
+  } = useStore(useShallow((s) => ({
+    activeView: s.activeView,
+    activePlaylistId: s.activePlaylistId,
+    playlists: s.playlists,
+    isScanning: s.isScanning,
+    setActiveView: s.setActiveView,
+    setActivePlaylist: s.setActivePlaylist,
+  })));
 
   const { createNewPlaylist } = useLibrary();
 

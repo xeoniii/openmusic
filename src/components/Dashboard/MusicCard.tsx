@@ -3,6 +3,7 @@ import { Play, PlusCircle, MinusCircle, Pencil, Trash2 } from "lucide-react";
 import { useSortable } from "@dnd-kit/sortable";
 import { CSS } from "@dnd-kit/utilities";
 import { useStore } from "../../store";
+import { useShallow } from "zustand/react/shallow";
 import { formatDuration, stringToColor } from "../../utils/helpers";
 import { getCoverArt } from "../../utils/tauriApi";
 import type { Track } from "../../types";
@@ -115,9 +116,11 @@ export const MusicCard = memo(function MusicCard({
   dragHandleProps,
   sourceId = null,
 }: MusicCardProps) {
-  const { currentTrack, isPlaying, setQueue, setIsPlaying } = useStore();
+  const currentTrack = useStore(s => s.currentTrack);
+  const isPlaying = useStore(s => s.isPlaying);
+  const setQueue = useStore(s => s.setQueue);
+  const setIsPlaying = useStore(s => s.setIsPlaying);
   const isActive = currentTrack?.id === track.id;
-  const [hovered, setHovered] = useState(false);
 
   const handlePlay = (e: React.MouseEvent) => {
     e.stopPropagation();
@@ -133,8 +136,6 @@ export const MusicCard = memo(function MusicCard({
     return (
       <div
         onClick={handlePlay}
-        onMouseEnter={() => setHovered(true)}
-        onMouseLeave={() => setHovered(false)}
         className={`flex items-center gap-3 px-3 py-2 rounded-xl cursor-pointer transition-all duration-150 group
           ${isActive
             ? "bg-accent-muted border border-accent"
@@ -151,20 +152,18 @@ export const MusicCard = memo(function MusicCard({
           </div>
         )}
         <div className="w-10 h-10 rounded-lg overflow-hidden flex-shrink-0 relative">
-          <CoverArt track={track} size={256} />
-          {(hovered || isActive) && (
-            <div className="absolute inset-0 bg-black/50 flex items-center justify-center">
-              {isActive && isPlaying ? (
-                <div className="flex gap-0.5 items-end h-4">
-                  <div className="eq-bar" />
-                  <div className="eq-bar" />
-                  <div className="eq-bar" />
-                </div>
-              ) : (
-                <Play size={14} fill="white" color="white" />
-              )}
-            </div>
-          )}
+          <CoverArt track={track} size={128} />
+          <div className={`absolute inset-0 bg-black/40 flex items-center justify-center transition-opacity ${isActive ? "opacity-100" : "opacity-0 group-hover:opacity-100"}`}>
+            {isActive && isPlaying ? (
+              <div className="flex gap-0.5 items-end h-4">
+                <div className="eq-bar" />
+                <div className="eq-bar" />
+                <div className="eq-bar" />
+              </div>
+            ) : (
+              <Play size={14} fill="white" color="white" />
+            )}
+          </div>
         </div>
 
         <div className="flex-1 min-w-0">
@@ -222,17 +221,15 @@ export const MusicCard = memo(function MusicCard({
 
   return (
     <div
-      onMouseEnter={() => setHovered(true)}
-      onMouseLeave={() => setHovered(false)}
       className={`music-card group ${isActive ? "playing" : ""}`}
       onClick={handlePlay}
     >
       <div className="relative aspect-square overflow-hidden">
-        <CoverArt track={track} size={500} />
+        <CoverArt track={track} size={256} />
 
         <div
-          className={`absolute inset-0 flex items-center justify-center bg-black/50 transition-opacity duration-200 ${
-            hovered || (isActive && isPlaying) ? "opacity-100" : "opacity-0"
+          className={`absolute inset-0 flex items-center justify-center bg-black/40 transition-opacity duration-200 ${
+            isActive && isPlaying ? "opacity-100" : "opacity-0 group-hover:opacity-100"
           }`}
         >
           {isActive && isPlaying ? (

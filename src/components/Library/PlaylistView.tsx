@@ -19,6 +19,7 @@ import {
 } from "@dnd-kit/sortable";
 import { restrictToVerticalAxis, restrictToWindowEdges } from "@dnd-kit/modifiers";
 import { useStore } from "../../store";
+import { useShallow } from "zustand/react/shallow";
 import { MusicCard, SortableMusicCard } from "../Dashboard/MusicCard";
 import { useLibrary } from "../../hooks/useLibrary";
 import { formatDuration, pluralize, shuffleArray } from "../../utils/helpers";
@@ -34,7 +35,14 @@ export function PlaylistView() {
     setQueue,
     setIsPlaying,
     setActiveView,
-  } = useStore();
+  } = useStore(useShallow((s) => ({
+    activePlaylistId: s.activePlaylistId,
+    playlists: s.playlists,
+    tracks: s.tracks,
+    setQueue: s.setQueue,
+    setIsPlaying: s.setIsPlaying,
+    setActiveView: s.setActiveView,
+  })));
 
   const { removePlaylistData, removeTrackFromPlaylist, updatePlaylistData } = useLibrary();
 

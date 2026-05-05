@@ -2952,7 +2952,7 @@ dependencies = [
 
 [[package]]
 name = "openmusic"
-version = "0.6.2"
+version = "0.6.4"
 dependencies = [
  "base64 0.21.7",
  "discord-rich-presence",

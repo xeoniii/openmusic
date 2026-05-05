@@ -514,7 +514,7 @@ async fn search_jiosaavn(app_handle: tauri::AppHandle, query: String) -> Result<
             let cover_art = s["image"]
                 .as_str()
                 .unwrap_or_default()
-                .replace("50x50", "250x250");
+                .replace("50x50", "150x150");
             results.push(HarbourSearchResult {
                 id: s["id"].as_str().unwrap_or_default().to_string(),
                 title: s["title"].as_str().unwrap_or_default().to_string(),
@@ -562,7 +562,7 @@ async fn search_itunes(app_handle: tauri::AppHandle, query: String) -> Result<Ve
             let cover_art = t["artworkUrl100"]
                 .as_str()
                 .unwrap_or_default()
-                .replace("100x100", "256x256");
+                .replace("100x100", "200x200");
             results.push(HarbourSearchResult {
                 id: t["trackId"].as_i64().unwrap_or(0).to_string(),
                 title: t["trackName"].as_str().unwrap_or_default().to_string(),
@@ -748,7 +748,7 @@ async fn fetch_track_metadata(query: String) -> Result<HarbourSearchResult, Stri
     if let Some(results) = data["results"].as_array() {
         if !results.is_empty() {
             let s = &results[0];
-            let cover_art = s["artworkUrl100"].as_str().unwrap_or_default().replace("100x100bb", "500x500bb");
+            let cover_art = s["artworkUrl100"].as_str().unwrap_or_default().replace("100x100bb", "200x200bb");
             return Ok(HarbourSearchResult {
                 id: s["trackId"].as_i64().unwrap_or_default().to_string(),
                 title: s["trackName"].as_str().unwrap_or_default().to_string(),
@@ -1422,7 +1422,7 @@ async fn fetch_lyrics(query: String) -> Result<Option<String>, String> {
     let client = reqwest::Client::new();
     let resp = client
         .get(url)
-        .header("User-Agent", "OpenMusic/0.6.3 (https://github.com/xeoniii/openmusic)")
+        .header("User-Agent", "OpenMusic/0.6.4 (https://github.com/xeoniii/openmusic)")
         .send()
         .await
         .map_err(|e| e.to_string())?;
@@ -1576,5 +1576,5 @@ fn main() {
             }
         })
         .run(tauri::generate_context!())
-        .expect("error while running OpenMusic v0.6.3");
+        .expect("error while running OpenMusic v0.6.4");
 }

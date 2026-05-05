@@ -142,22 +142,45 @@ export async function saveTrackMetadata(filePath: string, metadata: TrackMetadat
 }
 
 const MAX_COVER_CACHE = 200;
-const coverCache = new Map<string, string>();
+const CACHE_TTL = 5000; // 5 seconds
+
+interface CacheEntry {
+  url: string;
+  lastUsed: number;
+}
+
+const coverCache = new Map<string, CacheEntry>();
+
+// Prune cache every 2 seconds
+setInterval(() => {
+  const now = Date.now();
+  for (const [key, entry] of coverCache.entries()) {
+    if (now - entry.lastUsed > CACHE_TTL) {
+      coverCache.delete(key);
+    }
+  }
+}, 2000);
 
 export async function getCoverArt(filePath: string, size: number = 256): Promise<string | null> {
   const cacheKey = `${filePath}_${size}`;
   const cached = coverCache.get(cacheKey);
-  if (cached) return cached;
+
+  if (cached) {
+    cached.lastUsed = Date.now();
+    return cached.url;
+  }
 
   try {
     const result = await invoke<string | null>("get_cover_art", { filePath });
     if (result) {
       const url = `${convertFileSrc(result)}?thumb=1&size=${size}`;
+
       if (coverCache.size >= MAX_COVER_CACHE) {
         const firstKey = coverCache.keys().next().value;
         if (firstKey) coverCache.delete(firstKey);
       }
-      coverCache.set(cacheKey, url);
+
+      coverCache.set(cacheKey, { url, lastUsed: Date.now() });
       return url;
     }
     return null;

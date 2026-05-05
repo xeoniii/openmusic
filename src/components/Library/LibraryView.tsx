@@ -6,6 +6,7 @@ import {
 import { open } from "@tauri-apps/plugin-dialog";
 import { importFiles, deleteTrack } from "../../utils/tauriApi";
 import { useStore } from "../../store";
+import { useShallow } from "zustand/react/shallow";
 import { MusicCard } from "../Dashboard/MusicCard";
 import { useLibrary } from "../../hooks/useLibrary";
 import { AddToPlaylistModal } from "./AddToPlaylistModal";
@@ -75,8 +76,20 @@ const GridContent = memo(function GridContent({
 });
 
 export function LibraryView() {
-  const { tracks, isScanning, searchQuery, setSearchQuery, musicDir, libraryViewMode, setLibraryViewMode, removeTrack, addNotification } =
-    useStore();
+  const {
+    tracks, isScanning, searchQuery, setSearchQuery, musicDir,
+    libraryViewMode, setLibraryViewMode, removeTrack, addNotification
+  } = useStore(useShallow((s) => ({
+    tracks: s.tracks,
+    isScanning: s.isScanning,
+    searchQuery: s.searchQuery,
+    setSearchQuery: s.setSearchQuery,
+    musicDir: s.musicDir,
+    libraryViewMode: s.libraryViewMode,
+    setLibraryViewMode: s.setLibraryViewMode,
+    removeTrack: s.removeTrack,
+    addNotification: s.addNotification,
+  })));
   const { rescanDirectory } = useLibrary();
 
   const [sortKey, setSortKey] = useState<SortKey>("title");

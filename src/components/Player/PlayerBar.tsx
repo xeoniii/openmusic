@@ -4,6 +4,7 @@ import {
   Shuffle, Volume2, VolumeX, Volume1,
 } from "lucide-react";
 import { useStore } from "../../store";
+import { useShallow } from "zustand/react/shallow";
 import { useAudioPlayer } from "../../hooks/useAudioPlayer";
 import { CoverArt } from "../Dashboard/MusicCard";
 import { formatDuration, truncate } from "../../utils/helpers";
@@ -38,7 +39,22 @@ export function PlayerBar() {
     playNext,
     playPrev,
     toggleMute,
-  } = useStore();
+  } = useStore(useShallow((s) => ({
+    currentTrack: s.currentTrack,
+    isPlaying: s.isPlaying,
+    currentTime: s.currentTime,
+    duration: s.duration,
+    volume: s.volume,
+    repeatMode: s.repeatMode,
+    shuffleEnabled: s.shuffleEnabled,
+    setIsPlaying: s.setIsPlaying,
+    setVolume: s.setVolume,
+    setRepeatMode: s.setRepeatMode,
+    toggleShuffle: s.toggleShuffle,
+    playNext: s.playNext,
+    playPrev: s.playPrev,
+    toggleMute: s.toggleMute,
+  })));
 
   const { seek, togglePlay } = useAudioPlayer();
 

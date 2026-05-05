@@ -1,5 +1,6 @@
 import { useEffect, useRef, useCallback } from "react";
 import { useStore } from "../store";
+import { useShallow } from "zustand/react/shallow";
 import { readAudioFile, updateDiscordRpc, clearDiscordRpc, fetchTrackMetadata } from "../utils/tauriApi";
 
 const audio = new Audio();
@@ -15,7 +16,16 @@ export function useAudioPlayer() {
     setCurrentTime,
     setDuration,
     playNext,
-  } = useStore();
+  } = useStore(useShallow((s) => ({
+    currentTrack: s.currentTrack,
+    isPlaying: s.isPlaying,
+    volume: s.volume,
+    repeatMode: s.repeatMode,
+    setIsPlaying: s.setIsPlaying,
+    setCurrentTime: s.setCurrentTime,
+    setDuration: s.setDuration,
+    playNext: s.playNext,
+  })));
 
   const loadAbortRef = useRef<number>(0);
 

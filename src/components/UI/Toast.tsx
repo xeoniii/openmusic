@@ -1,10 +1,14 @@
 import React from "react";
 import { CheckCircle2, Info, XCircle, X, Loader2 } from "lucide-react";
 import { useStore } from "../../store";
+import { useShallow } from "zustand/react/shallow";
 import { clsx } from "clsx";
 
 export function ToastContainer() {
-  const { notifications, removeNotification } = useStore();
+  const { notifications, removeNotification } = useStore(useShallow((s) => ({
+    notifications: s.notifications,
+    removeNotification: s.removeNotification,
+  })));
 
   return (
     <div className="fixed bottom-[110px] right-6 z-[9999] flex flex-col gap-3 pointer-events-none">

@@ -1,6 +1,7 @@
 import React, { useRef, useEffect, useCallback } from "react";
 import { X, PlusCircle } from "lucide-react";
 import { useStore } from "../../store";
+import { useShallow } from "zustand/react/shallow";
 import { useLibrary } from "../../hooks/useLibrary";
 import type { Track } from "../../types";
 
@@ -11,7 +12,10 @@ interface AddToPlaylistModalProps {
 }
 
 export function AddToPlaylistModal({ track, tracks, onClose }: AddToPlaylistModalProps) {
-  const { playlists, updatePlaylist } = useStore();
+  const { playlists, updatePlaylist } = useStore(useShallow((s) => ({
+    playlists: s.playlists,
+    updatePlaylist: s.updatePlaylist,
+  })));
   const { updatePlaylistData } = useLibrary();
   const modalRef = useRef<HTMLDivElement>(null);
 
