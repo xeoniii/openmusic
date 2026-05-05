@@ -1,8 +1,8 @@
 {
   "$schema": "../node_modules/@tauri-apps/cli/schema.json",
   "productName": "OpenMusic",
-  "version": "0.6.1",
-  "identifier": "com.openmusic.app",
+  "version": "0.6.2",
+  "identifier": "dev.xeoniii.openmusic",
   "build": {
     "beforeDevCommand": "npm run dev",
     "beforeBuildCommand": "npm run build",
@@ -56,7 +56,7 @@
       }
     ],
     "security": {
-      "csp": "default-src 'self'; media-src 'self' http://localhost:1422 http://127.0.0.1:1422; img-src 'self' data: blob: http://localhost:1422 http://127.0.0.1:1422"
+      "csp": "default-src 'self'; media-src 'self' http://localhost:1422 http://127.0.0.1:1422; img-src 'self' data: blob: http://localhost:1422 http://127.0.0.1:1422 https://*.mzstatic.com https://*.saavncdn.com https://*.ytimg.com https://*.googleusercontent.com"
     }
   }
 }

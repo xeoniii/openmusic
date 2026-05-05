@@ -65,3 +65,11 @@ export interface PlayerState {
   repeatMode: "off" | "one" | "all";
   shuffleEnabled: boolean;
 }
+
+export interface Notification {
+  id: string;
+  title?: string;
+  message: string;
+  type: "info" | "success" | "error";
+  loading?: boolean;
+}

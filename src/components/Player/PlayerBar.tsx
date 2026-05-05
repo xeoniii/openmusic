@@ -77,7 +77,7 @@ return (
           }`}
         >
           {currentTrack ? (
-            <CoverArt track={currentTrack} size="sm" />
+            <CoverArt track={currentTrack} size={256} />
           ) : (
             <div className="w-full h-full bg-surface-overlay flex items-center justify-center">
               <div className="w-4 h-4 rounded-full border border-border-glass" />

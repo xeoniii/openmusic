@@ -4,7 +4,7 @@ import {
   Music2, RefreshCw, Plus, PlusCircle
 } from "lucide-react";
 import { open } from "@tauri-apps/plugin-dialog";
-import { importFiles } from "../../utils/tauriApi";
+import { importFiles, deleteTrack } from "../../utils/tauriApi";
 import { useStore } from "../../store";
 import { MusicCard } from "../Dashboard/MusicCard";
 import { useLibrary } from "../../hooks/useLibrary";
@@ -18,10 +18,12 @@ const ListContent = memo(function ListContent({
   tracks,
   onAddToPlaylist,
   onEditMetadata,
+  onDelete,
 }: {
   tracks: Track[];
   onAddToPlaylist: (track: Track) => void;
   onEditMetadata: (track: Track) => void;
+  onDelete: (track: Track) => void;
 }) {
   return (
     <div className="flex flex-col gap-0.5">
@@ -31,9 +33,11 @@ const ListContent = memo(function ListContent({
           track={track}
           allTracks={tracks}
           trackIndex={i}
+          sourceId="library"
           viewMode="list"
           onAddToPlaylist={onAddToPlaylist}
           onEditMetadata={onEditMetadata}
+          onDelete={onDelete}
         />
       ))}
     </div>
@@ -44,10 +48,12 @@ const GridContent = memo(function GridContent({
   tracks,
   onAddToPlaylist,
   onEditMetadata,
+  onDelete,
 }: {
   tracks: Track[];
   onAddToPlaylist: (track: Track) => void;
   onEditMetadata: (track: Track) => void;
+  onDelete: (track: Track) => void;
 }) {
   return (
     <div className="music-grid">
@@ -57,9 +63,11 @@ const GridContent = memo(function GridContent({
           track={track}
           allTracks={tracks}
           trackIndex={i}
+          sourceId="library"
           viewMode="grid"
           onAddToPlaylist={onAddToPlaylist}
           onEditMetadata={onEditMetadata}
+          onDelete={onDelete}
         />
       ))}
     </div>
@@ -67,7 +75,7 @@ const GridContent = memo(function GridContent({
 });
 
 export function LibraryView() {
-  const { tracks, isScanning, searchQuery, setSearchQuery, musicDir, libraryViewMode, setLibraryViewMode } =
+  const { tracks, isScanning, searchQuery, setSearchQuery, musicDir, libraryViewMode, setLibraryViewMode, removeTrack, addNotification } =
     useStore();
   const { rescanDirectory } = useLibrary();
 
@@ -102,6 +110,19 @@ export function LibraryView() {
   const handleEditMetadata = useCallback((track: Track) => {
     setEditTrack(track);
   }, []);
+
+  const handleDeleteTrack = useCallback(async (track: Track) => {
+    if (!confirm(`Are you sure you want to delete "${track.title}"? This will physically remove the file from your disk.`)) return;
+    
+    try {
+      await deleteTrack(track.filePath);
+      removeTrack(track.id);
+      addNotification(`Deleted "${track.title}"`, "info");
+    } catch (err: any) {
+      console.error(err);
+      addNotification(`Failed to delete track: ${err}`, "error");
+    }
+  }, [removeTrack, addNotification]);
 
   const handleImport = async () => {
     if (!musicDir) return;
@@ -257,9 +278,9 @@ export function LibraryView() {
             </div>
           </div>
         ) : libraryViewMode === "list" ? (
-          <ListContent tracks={filtered} onAddToPlaylist={handleAddToPlaylist} onEditMetadata={handleEditMetadata} />
+          <ListContent tracks={filtered} onAddToPlaylist={handleAddToPlaylist} onEditMetadata={handleEditMetadata} onDelete={handleDeleteTrack} />
         ) : (
-          <GridContent tracks={filtered} onAddToPlaylist={handleAddToPlaylist} onEditMetadata={handleEditMetadata} />
+          <GridContent tracks={filtered} onAddToPlaylist={handleAddToPlaylist} onEditMetadata={handleEditMetadata} onDelete={handleDeleteTrack} />
         )}
       </div>
       {addTrack && (

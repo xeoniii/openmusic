@@ -2,8 +2,24 @@ import React, { useMemo, useState, useCallback } from "react";
 import {
   Play, Shuffle, Trash2, Music2, ListMusic, MinusCircle, PlusCircle,
 } from "lucide-react";
+import {
+  DndContext,
+  closestCenter,
+  KeyboardSensor,
+  PointerSensor,
+  useSensor,
+  useSensors,
+  DragEndEvent,
+} from "@dnd-kit/core";
+import {
+  arrayMove,
+  SortableContext,
+  sortableKeyboardCoordinates,
+  verticalListSortingStrategy,
+} from "@dnd-kit/sortable";
+import { restrictToVerticalAxis, restrictToWindowEdges } from "@dnd-kit/modifiers";
 import { useStore } from "../../store";
-import { MusicCard } from "../Dashboard/MusicCard";
+import { MusicCard, SortableMusicCard } from "../Dashboard/MusicCard";
 import { useLibrary } from "../../hooks/useLibrary";
 import { formatDuration, pluralize, shuffleArray } from "../../utils/helpers";
 import { AddToPlaylistModal } from "./AddToPlaylistModal";
@@ -20,10 +36,21 @@ export function PlaylistView() {
     setActiveView,
   } = useStore();
 
-  const { removePlaylistData, removeTrackFromPlaylist } = useLibrary();
+  const { removePlaylistData, removeTrackFromPlaylist, updatePlaylistData } = useLibrary();
 
   const [addTrack, setAddTrack] = useState<Track | null>(null);
   const [showManageTracks, setShowManageTracks] = useState(false);
+
+  const sensors = useSensors(
+    useSensor(PointerSensor, {
+      activationConstraint: {
+        distance: 8,
+      },
+    }),
+    useSensor(KeyboardSensor, {
+      coordinateGetter: sortableKeyboardCoordinates,
+    })
+  );
 
   const playlist = useMemo(
     () => playlists.find((p) => p.id === activePlaylistId),
@@ -54,21 +81,42 @@ export function PlaylistView() {
 
   const handlePlay = () => {
     if (!playlistTracks.length) return;
-    setQueue(playlistTracks, 0);
+    setQueue(playlistTracks, 0, playlist.id);
     setIsPlaying(true);
   };
 
   const handleShuffle = useCallback(() => {
     if (!playlistTracks.length) return;
-    setQueue(shuffleArray(playlistTracks), 0);
+    setQueue(shuffleArray(playlistTracks), 0, playlist.id);
     setIsPlaying(true);
-  }, [playlistTracks.length]);
+  }, [playlistTracks.length, playlist.id]);
 
   const handleDelete = async () => {
     if (!confirm(`Delete playlist "${playlist.name}"?`)) return;
     const plToDelete = playlist;
     setActiveView("library");
     await removePlaylistData(plToDelete);
+  };
+
+  const handleDragEnd = async (event: DragEndEvent) => {
+    const { active, over } = event;
+    if (over && active.id !== over.id) {
+      const oldIndex = playlistTracks.findIndex((t) => t.id === active.id);
+      const newIndex = playlistTracks.findIndex((t) => t.id === over.id);
+
+      if (oldIndex !== -1 && newIndex !== -1) {
+        const newTracks = arrayMove(playlistTracks, oldIndex, newIndex);
+        const newTrackIds = newTracks.map((t) => t.id);
+
+        // Sync the player queue if it's currently playing this playlist
+        useStore.getState().syncQueue(newTracks, playlist.id);
+
+        await updatePlaylistData({
+          ...playlist,
+          trackIds: newTrackIds,
+        });
+      }
+    }
   };
 
   return (
@@ -155,23 +203,36 @@ export function PlaylistView() {
             </div>
           </div>
         ) : (
-          <div className="flex flex-col gap-0.5">
-            {playlistTracks.map((track, i) => (
-              <MusicCard
-                key={track.id}
-                track={track}
-                allTracks={playlistTracks}
-                trackIndex={i}
-                viewMode="list"
-                onAddToPlaylist={(t) => setAddTrack(t)}
-                onRemoveFromPlaylist={async (t) => {
-                  if (confirm(`Remove "${t.title}" from this playlist?`)) {
-                    await removeTrackFromPlaylist(playlist, t.id);
-                  }
-                }}
-              />
-            ))}
-          </div>
+          <DndContext
+            sensors={sensors}
+            collisionDetection={closestCenter}
+            onDragEnd={handleDragEnd}
+            modifiers={[restrictToVerticalAxis, restrictToWindowEdges]}
+          >
+            <SortableContext
+              items={playlistTracks.map((t) => t.id)}
+              strategy={verticalListSortingStrategy}
+            >
+              <div className="flex flex-col gap-0.5">
+                {playlistTracks.map((track, i) => (
+                  <SortableMusicCard
+                    key={track.id}
+                    track={track}
+                    allTracks={playlistTracks}
+                    trackIndex={i}
+                    sourceId={playlist.id}
+                    viewMode="list"
+                    onAddToPlaylist={(t) => setAddTrack(t)}
+                    onRemoveFromPlaylist={async (t) => {
+                      if (confirm(`Remove "${t.title}" from this playlist?`)) {
+                        await removeTrackFromPlaylist(playlist, t.id);
+                      }
+                    }}
+                  />
+                ))}
+              </div>
+            </SortableContext>
+          </DndContext>
         )}
       </div>
       {addTrack && (

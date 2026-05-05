@@ -1,6 +1,6 @@
 [package]
 name = "openmusic"
-version = "0.6.1"
+version = "0.6.2"
 description = "OpenMusic — A modern offline music player"
 authors = ["xeoniii <https://github.com/xeoniii>"]
 license = "GPL-3.0-only"
@@ -8,9 +8,7 @@ repository = "https://github.com/xeoniii/openmusic"
 edition = "2021"
 rust-version = "1.70"
 
-[lib]
-name = "openmusic_lib"
-crate-type = ["staticlib", "cdylib", "rlib"]
+
 
 [build-dependencies]
 tauri-build = { version = "2", features = [] }
@@ -37,6 +35,7 @@ reqwest = { version = "0.11", features = ["json", "cookies"] }
 urlencoding = "2.1"
 regex = "1.10"
 tauri-plugin-shell = "2"
+souvlaki = { version = "0.8", default-features = false, features = ["use_zbus"] }
 
 [features]
 custom-protocol = ["tauri/custom-protocol"]

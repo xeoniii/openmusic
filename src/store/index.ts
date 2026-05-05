@@ -13,6 +13,7 @@ import type {
   AccentPreset,
   ViewId,
   AppSettings,
+  Notification,
 } from "../types";
 import { shuffleArray } from "../utils/helpers";
 
@@ -25,14 +26,16 @@ interface PlayerSlice {
   isPlaying: boolean;
   currentTime: number;
   duration: number;
+  queueSourceId: string | null;
 
   setCurrentTrack: (track: Track) => void;
-  setQueue: (tracks: Track[], startIndex?: number) => void;
+  setQueue: (tracks: Track[], startIndex?: number, sourceId?: string | null) => void;
   setIsPlaying: (v: boolean) => void;
   setCurrentTime: (t: number) => void;
   setDuration: (d: number) => void;
   playNext: () => void;
   playPrev: () => void;
+  syncQueue: (tracks: Track[], sourceId: string) => void;
 }
 
 // ── Library Slice ────────────────────────────────────────────────────────────
@@ -59,6 +62,7 @@ interface LibrarySlice {
   setPlaylistsDir: (dir: string) => void;
   setCoversDir: (dir: string) => void;
   setDiscordCoverCache: (id: string, url: string) => void;
+  removeTrack: (id: string) => void;
 }
 
 // ── UI / Settings Slice ──────────────────────────────────────────────────────
@@ -87,6 +91,10 @@ interface UISlice {
   setTrayEnabled: (t: boolean) => void;
   toggleMute: () => void;
   setLibraryViewMode: (m: "grid" | "list") => void;
+  notifications: Notification[];
+  addNotification: (message: string, type?: "info" | "success" | "error", duration?: number, loading?: boolean, title?: string) => string;
+  updateNotification: (id: string, updates: Partial<Omit<Notification, "id">>) => void;
+  removeNotification: (id: string) => void;
 }
 
 // ── Combined Store ────────────────────────────────────────────────────────────
@@ -103,11 +111,12 @@ export const useStore = create<Store>()(
       isPlaying: false,
       currentTime: 0,
       duration: 0,
+      queueSourceId: null,
 
       setCurrentTrack: (track) =>
         set({ currentTrack: track, currentTime: 0 }),
 
-      setQueue: (tracks, startIndex = 0) => {
+      setQueue: (tracks, startIndex = 0, sourceId = null) => {
         const { shuffleEnabled } = get();
         let finalTracks = [...tracks];
         let finalIndex = startIndex;
@@ -124,6 +133,7 @@ export const useStore = create<Store>()(
           queueIndex: finalIndex,
           currentTrack: finalTracks[finalIndex] ?? null,
           currentTime: 0,
+          queueSourceId: sourceId,
         });
       },
 
@@ -166,6 +176,17 @@ export const useStore = create<Store>()(
         });
       },
 
+      syncQueue: (tracks, sourceId) => {
+        const { queueSourceId, currentTrack } = get();
+        if (queueSourceId !== sourceId) return;
+
+        const newIndex = tracks.findIndex((t) => t.id === currentTrack?.id);
+        set({
+          queue: tracks,
+          queueIndex: newIndex !== -1 ? newIndex : 0,
+        });
+      },
+
       // ── Library ─────────────────────────────────────────────────────────────
       tracks: [],
       playlists: [],
@@ -199,6 +220,44 @@ export const useStore = create<Store>()(
       setPlaylistsDir: (dir) => set({ playlistsDir: dir }),
       setCoversDir: (dir) => set({ coversDir: dir }),
       setDiscordCoverCache: (id, url) => set((s) => ({ discordCoverCache: { ...s.discordCoverCache, [id]: url } })),
+      removeTrack: (id) => {
+        const { tracks, playlists, currentTrack, queue, queueIndex } = get();
+        
+        // Remove from playlists
+        const updatedPlaylists = playlists.map(pl => ({
+          ...pl,
+          trackIds: pl.trackIds.filter(tid => tid !== id)
+        }));
+
+        // Remove from queue
+        const updatedQueue = queue.filter(t => t.id !== id);
+        let newIndex = queueIndex;
+        let newCurrent = currentTrack;
+
+        if (currentTrack?.id === id) {
+          if (updatedQueue.length > 0) {
+            newIndex = Math.min(queueIndex, updatedQueue.length - 1);
+            newCurrent = updatedQueue[newIndex];
+          } else {
+            newIndex = -1;
+            newCurrent = null;
+          }
+        } else {
+          // Adjust index if an earlier track was removed
+          const oldIdx = queue.findIndex(t => t.id === id);
+          if (oldIdx !== -1 && oldIdx < queueIndex) {
+            newIndex = queueIndex - 1;
+          }
+        }
+
+        set({
+          tracks: tracks.filter(t => t.id !== id),
+          playlists: updatedPlaylists,
+          queue: updatedQueue,
+          queueIndex: newIndex,
+          currentTrack: newCurrent,
+        });
+      },
 
       // ── UI ──────────────────────────────────────────────────────────────────
       activeView: "home",
@@ -251,6 +310,27 @@ export const useStore = create<Store>()(
         }
       },
       setLibraryViewMode: (m) => set({ libraryViewMode: m }),
+      notifications: [],
+      addNotification: (message, type = "info", duration = 5000, loading = false, title) => {
+        const id = Math.random().toString(36).substring(7);
+        set((s) => ({
+          notifications: [...s.notifications, { id, message, type, loading, title }],
+        }));
+        if (duration > 0) {
+          setTimeout(() => get().removeNotification(id), duration);
+        }
+        return id;
+      },
+      updateNotification: (id, updates) =>
+        set((s) => ({
+          notifications: s.notifications.map((n) =>
+            n.id === id ? { ...n, ...updates } : n
+          ),
+        })),
+      removeNotification: (id) =>
+        set((s) => ({
+          notifications: s.notifications.filter((n) => n.id !== id),
+        })),
     }),
     {
       name: "openmusic-storage",

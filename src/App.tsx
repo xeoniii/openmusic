@@ -1,6 +1,7 @@
 import React, { useEffect } from "react";
 import { useStore } from "./store";
 import { useLibrary } from "./hooks/useLibrary";
+import { useMediaControls } from "./hooks/useMediaControls";
 import { getAppPaths, setTrayEnabled, toggleFullscreen, fetchTrackMetadata } from "./utils/tauriApi";
 import { getCurrentWindow } from "@tauri-apps/api/window";
 import { invoke } from "@tauri-apps/api/core";
@@ -12,6 +13,7 @@ import { PlaylistView } from "./components/Library/PlaylistView";
 import { PlayerView } from "./components/Player/PlayerView";
 import HarbourView from "./components/Harbour/HarbourView";
 import { SettingsView } from "./components/Settings/SettingsView";
+import { ToastContainer } from "./components/UI/Toast";
 
 function ViewRouter() {
   const { activeView } = useStore();
@@ -33,6 +35,9 @@ export default function App() {
     setMusicDir, setPlaylistsDir, setCoversDir, guiScale
   } = useStore();
   const { initialize } = useLibrary();
+
+  // OS media controls (MPRIS / SMTC / Now Playing)
+  useMediaControls();
 
   useEffect(() => {
     document.documentElement.dataset.accent = accentColor;
@@ -167,6 +172,9 @@ export default function App() {
 
       {/* Persistent player bar */}
       <PlayerBar />
+
+      {/* Global Notifications */}
+      <ToastContainer />
     </div>
   );
 }

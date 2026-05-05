@@ -90,6 +90,10 @@ export async function deletePlaylist(filePath: string): Promise<void> {
   await invoke("delete_playlist", { filePath });
 }
 
+export async function deleteTrack(filePath: string): Promise<void> {
+  await invoke("delete_track", { filePath });
+}
+
 export async function importPlaylist(playlistsDir: string, sourcePath: string): Promise<Playlist> {
   const raw = await invoke<Record<string, unknown>>("import_playlist", {
     playlistsDir,
@@ -139,19 +143,20 @@ export async function saveTrackMetadata(filePath: string, metadata: TrackMetadat
 const MAX_COVER_CACHE = 200;
 const coverCache = new Map<string, string>();
 
-export async function getCoverArt(filePath: string): Promise<string | null> {
-  const cached = coverCache.get(filePath);
+export async function getCoverArt(filePath: string, size: number = 256): Promise<string | null> {
+  const cacheKey = `${filePath}_${size}`;
+  const cached = coverCache.get(cacheKey);
   if (cached) return cached;
 
   try {
     const result = await invoke<string | null>("get_cover_art", { filePath });
     if (result) {
-      const url = convertFileSrc(result) + "?thumb=1";
+      const url = `${convertFileSrc(result)}?thumb=1&size=${size}`;
       if (coverCache.size >= MAX_COVER_CACHE) {
         const firstKey = coverCache.keys().next().value;
         if (firstKey) coverCache.delete(firstKey);
       }
-      coverCache.set(filePath, url);
+      coverCache.set(cacheKey, url);
       return url;
     }
     return null;
@@ -226,4 +231,27 @@ export async function downloadTrack(
     album,
     coverArt,
   });
+}
+
+// ── OS Media Controls (MPRIS / SMTC / Now Playing) ────────────────────────
+
+export async function updateMediaMetadata(
+  title: string,
+  artist: string,
+  album: string,
+  coverUrl?: string,
+  duration?: number
+): Promise<void> {
+  await invoke("update_media_metadata", { title, artist, album, coverUrl, duration });
+}
+
+export async function updateMediaPlayback(
+  isPlaying: boolean,
+  progress?: number
+): Promise<void> {
+  await invoke("update_media_playback", { isPlaying, progress });
+}
+
+export async function clearMediaControls(): Promise<void> {
+  await invoke("clear_media_controls");
 }

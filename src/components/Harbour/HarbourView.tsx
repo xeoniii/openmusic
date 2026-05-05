@@ -22,7 +22,7 @@ export default function HarbourView() {
   const [downloadingIds, setDownloadingIds] = useState<Set<string>>(new Set());
   const [provider, setProvider] = useState("itunes");
   const [preparing, setPreparing] = useState(true);
-  const { musicDir } = useStore();
+  const { musicDir, addNotification, updateNotification, removeNotification } = useStore();
   const { rescanDirectory } = useLibrary();
 
   useEffect(() => {
@@ -45,9 +45,9 @@ export default function HarbourView() {
     setLoading(true);
     setError(null);
     try {
-      const res = await invoke<HarbourSearchResult[]>("harbour_search", { 
+      const res = await invoke<HarbourSearchResult[]>("harbour_search", {
         query,
-        provider 
+        provider
       });
       setResults(res);
       if (res.length === 0) setError("No results found.");
@@ -60,6 +60,8 @@ export default function HarbourView() {
 
   const downloadTrack = async (track: HarbourSearchResult) => {
     setDownloadingIds(prev => new Set(prev).add(track.id));
+    const notifId = addNotification("Downloading...", "info", 0, true, track.title);
+
     try {
       await invoke("download_track", {
         musicDir,
@@ -68,11 +70,13 @@ export default function HarbourView() {
         album: track.album,
         coverArt: track.cover_art
       });
-      alert("Download complete!");
+      updateNotification(notifId, { message: "Download complete!", type: "success", loading: false });
+      setTimeout(() => removeNotification(notifId), 5000);
       rescanDirectory();
     } catch (err: any) {
       console.error(err);
-      alert(`Download failed: ${err}`);
+      updateNotification(notifId, { message: "Download failed", type: "error", loading: false });
+      setTimeout(() => removeNotification(notifId), 5000);
     } finally {
       setDownloadingIds(prev => {
         const next = new Set(prev);
@@ -119,8 +123,8 @@ export default function HarbourView() {
               className="w-full bg-white/5 border border-white/10 rounded-xl py-2.5 pl-12 pr-4 focus:outline-none focus:ring-2 focus:ring-accent/50 focus:border-accent transition-all placeholder:text-white/20"
             />
           </div>
-          
-          <select 
+
+          <select
             value={provider}
             onChange={(e) => setProvider(e.target.value)}
             className="bg-white/5 border border-white/10 rounded-xl px-4 py-2.5 focus:outline-none focus:ring-2 focus:ring-accent/50 focus:border-accent transition-all text-sm appearance-none cursor-pointer"
@@ -131,7 +135,7 @@ export default function HarbourView() {
             <option value="youtube" className="bg-[#1a1a1a]">YouTube</option>
           </select>
 
-          <button 
+          <button
             type="submit"
             disabled={loading}
             className="bg-accent hover:bg-accent/80 disabled:opacity-50 text-black font-semibold px-6 rounded-xl transition-all flex items-center gap-2"
@@ -157,7 +161,7 @@ export default function HarbourView() {
               <h3 className="text-xl font-bold text-white mb-2">Search Failed</h3>
               <p className="text-sm leading-relaxed">{error}</p>
             </div>
-            <button 
+            <button
               onClick={() => handleSearch()}
               className="mt-4 px-6 py-2 bg-white/5 hover:bg-white/10 rounded-lg transition-colors text-white"
             >
@@ -167,17 +171,26 @@ export default function HarbourView() {
         ) : results.length > 0 ? (
           <div className="grid grid-cols-1 gap-2 max-w-5xl mx-auto">
             {results.map((track) => (
-              <div 
+              <div
                 key={track.id}
                 className="group flex items-center gap-4 p-3 rounded-xl bg-white/[0.02] border border-white/5 hover:bg-white/[0.05] hover:border-white/10 transition-all"
               >
                 <div className="relative w-16 h-16 rounded-lg overflow-hidden flex-shrink-0 bg-white/5 shadow-lg shadow-black/50">
                   {track.cover_art ? (
-                    <img 
-                      src={track.cover_art} 
-                      alt={track.title} 
-                      className="w-full h-full object-cover transition-transform group-hover:scale-110 duration-500"
-                    />
+                    <>
+                      <img 
+                        src={track.cover_art} 
+                        alt={track.title} 
+                        className="w-full h-full object-cover transition-transform group-hover:scale-110 duration-500"
+                        onError={(e) => {
+                          (e.target as HTMLImageElement).style.display = 'none';
+                          (e.target as HTMLImageElement).parentElement?.querySelector('.fallback-icon')?.classList.remove('hidden');
+                        }}
+                      />
+                      <div className="fallback-icon hidden w-full h-full flex items-center justify-center text-white/20">
+                        <Music size={24} />
+                      </div>
+                    </>
                   ) : (
                     <div className="w-full h-full flex items-center justify-center text-white/20">
                       <Music size={24} />
