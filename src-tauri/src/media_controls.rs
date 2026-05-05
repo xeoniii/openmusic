@@ -71,8 +71,8 @@ impl MediaManagerState {
                 // Retrieve the HWND from the main Tauri window.
                 use tauri::Manager;
                 if let Some(window) = app_handle.get_webview_window("main") {
-                    use raw_window_handle::{HasRawWindowHandle, RawWindowHandle};
-                    match window.raw_window_handle() {
+                    use raw_window_handle::{HasWindowHandle, RawWindowHandle};
+                    match window.window_handle().map(|h| h.as_raw()) {
                         Ok(RawWindowHandle::Win32(handle)) => {
                             Some(handle.hwnd.get() as *mut std::ffi::c_void)
                         }

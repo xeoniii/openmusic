@@ -36,6 +36,7 @@ urlencoding = "2.1"
 regex = "1.10"
 tauri-plugin-shell = "2"
 souvlaki = { version = "0.8", default-features = false, features = ["use_zbus"] }
+raw-window-handle = "0.6"
 
 [features]
 custom-protocol = ["tauri/custom-protocol"]
