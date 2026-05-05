@@ -33,24 +33,21 @@ export function Lyrics() {
 
   const lyrics = currentTrack?.lyrics;
 
-  const parsedLyrics = useMemo(() => {
-    if (!lyrics) return [];
-    const lines = parseLRC(lyrics);
-    if (lines.length === 0) {
-      return lyrics
-        .split("\n")
-        .map((line) => line.replace(/\[[^\]]*\]/g, "").trim())
-        .filter(Boolean)
-        .map((text, i) => ({
-          time: i * 3,
-          text,
-        }));
-    }
-    return lines;
+  const isSynced = useMemo(() => {
+    if (!lyrics) return false;
+    return /\[\d{2}:\d{2}\.\d{2,3}\]/.test(lyrics);
   }, [lyrics]);
 
+  const parsedLyrics = useMemo(() => {
+    if (!lyrics) return [];
+    if (!isSynced) {
+      return lyrics.split("\n").map(text => ({ time: 0, text }));
+    }
+    return parseLRC(lyrics);
+  }, [lyrics, isSynced]);
+
   const activeIndex = useMemo(() => {
-    if (!currentTrack || parsedLyrics.length === 0) return -1;
+    if (!currentTrack || parsedLyrics.length === 0 || !isSynced) return -1;
     let active = 0;
     for (let i = 0; i < parsedLyrics.length; i++) {
       if (parsedLyrics[i].time <= currentTime) {
@@ -60,13 +57,13 @@ export function Lyrics() {
       }
     }
     return active;
-  }, [currentTime, parsedLyrics]);
+  }, [currentTime, parsedLyrics, isSynced]);
 
   useEffect(() => {
-    if (activeRef.current && containerRef.current) {
+    if (isSynced && activeRef.current && containerRef.current) {
       activeRef.current.scrollIntoView({ behavior: "smooth", block: "center" });
     }
-  }, [activeIndex]);
+  }, [activeIndex, isSynced]);
 
   if (!lyrics) {
     return (
@@ -77,7 +74,7 @@ export function Lyrics() {
   }
 
   return (
-    <div ref={containerRef} className="h-full overflow-y-auto py-16">
+    <div ref={containerRef} className="h-full overflow-y-auto py-16 scrollbar-hide">
       {parsedLyrics.map((line, i) => (
         <div
           key={i}
@@ -86,8 +83,10 @@ export function Lyrics() {
         >
           <p
             className={`text-base px-6 text-center transition-all duration-300 ${
-              i === activeIndex
-                ? "text-accent font-semibold"
+              !isSynced
+                ? "text-text-primary"
+                : i === activeIndex
+                ? "text-accent font-semibold scale-110"
                 : "text-text-muted/50"
             }`}
           >

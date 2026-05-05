@@ -1,6 +1,6 @@
 [package]
 name = "openmusic"
-version = "0.6.2"
+version = "0.6.3"
 description = "OpenMusic — A modern offline music player"
 authors = ["xeoniii <https://github.com/xeoniii>"]
 license = "GPL-3.0-only"

@@ -36,6 +36,10 @@ interface PlayerSlice {
   playNext: () => void;
   playPrev: () => void;
   syncQueue: (tracks: Track[], sourceId: string) => void;
+  
+  seekRequest: number | null;
+  requestSeek: (t: number) => void;
+  clearSeekRequest: () => void;
 }
 
 // ── Library Slice ────────────────────────────────────────────────────────────
@@ -79,6 +83,7 @@ interface UISlice {
   trayEnabled: boolean;
   lastVolume: number;
   libraryViewMode: "grid" | "list";
+  theme: "dark" | "light";
 
   setActiveView: (v: ViewId) => void;
   setActivePlaylist: (id: string | null) => void;
@@ -91,6 +96,7 @@ interface UISlice {
   setTrayEnabled: (t: boolean) => void;
   toggleMute: () => void;
   setLibraryViewMode: (m: "grid" | "list") => void;
+  setTheme: (t: "dark" | "light") => void;
   notifications: Notification[];
   addNotification: (message: string, type?: "info" | "success" | "error", duration?: number, loading?: boolean, title?: string) => string;
   updateNotification: (id: string, updates: Partial<Omit<Notification, "id">>) => void;
@@ -112,6 +118,10 @@ export const useStore = create<Store>()(
       currentTime: 0,
       duration: 0,
       queueSourceId: null,
+      seekRequest: null,
+
+      requestSeek: (t) => set({ seekRequest: t }),
+      clearSeekRequest: () => set({ seekRequest: null }),
 
       setCurrentTrack: (track) =>
         set({ currentTrack: track, currentTime: 0 }),
@@ -160,19 +170,28 @@ export const useStore = create<Store>()(
       },
 
       playPrev: () => {
-        const { queue, queueIndex, currentTime, isPlaying } = get();
+        const { queue, queueIndex, currentTime, isPlaying, requestSeek } = get();
         if (!queue.length) return;
-        // If past 3s, restart; else go back
+
+        // If past 3s, restart current track
         if (currentTime > 3) {
-          set({ currentTime: 0 });
+          requestSeek(0);
           return;
         }
-        const prev = Math.max(0, queueIndex - 1);
+
+        // If at the beginning of the first track, wrap to the end of the queue
+        let prevIndex: number;
+        if (queueIndex > 0) {
+          prevIndex = queueIndex - 1;
+        } else {
+          prevIndex = queue.length - 1;
+        }
+
         set({
-          queueIndex: prev,
-          currentTrack: queue[prev],
+          queueIndex: prevIndex,
+          currentTrack: queue[prevIndex],
           currentTime: 0,
-          isPlaying: isPlaying, // Keep current play state
+          isPlaying: isPlaying,
         });
       },
 
@@ -199,7 +218,11 @@ export const useStore = create<Store>()(
 
       setTracks: (tracks) => set({ tracks }),
       updateTrack: (updated: Track) =>
-        set((s) => ({ tracks: s.tracks.map((t) => t.id === updated.id ? updated : t) })),
+        set((s) => ({
+          tracks: s.tracks.map((t) => (t.id === updated.id ? updated : t)),
+          currentTrack: s.currentTrack?.id === updated.id ? updated : s.currentTrack,
+          queue: s.queue.map((t) => (t.id === updated.id ? updated : t)),
+        })),
       addTracks: (incoming) => {
         const existing = get().tracks;
         const ids = new Set(existing.map((t) => t.id));
@@ -270,6 +293,7 @@ export const useStore = create<Store>()(
       guiScale: 1.15,
       trayEnabled: true,
       libraryViewMode: "list",
+      theme: "dark",
 
       setActiveView: (v) => set({ activeView: v, activePlaylistId: null }),
       setActivePlaylist: (id) =>
@@ -310,6 +334,7 @@ export const useStore = create<Store>()(
         }
       },
       setLibraryViewMode: (m) => set({ libraryViewMode: m }),
+      setTheme: (t) => set({ theme: t }),
       notifications: [],
       addNotification: (message, type = "info", duration = 5000, loading = false, title) => {
         const id = Math.random().toString(36).substring(7);
@@ -346,6 +371,7 @@ export const useStore = create<Store>()(
         guiScale: s.guiScale,
         trayEnabled: s.trayEnabled,
         libraryViewMode: s.libraryViewMode,
+        theme: s.theme,
         discordCoverCache: s.discordCoverCache,
       }),
     }

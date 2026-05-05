@@ -30,7 +30,34 @@ export function ToastContainer() {
             n.type === "error" && "bg-red-500/20",
             n.type === "info" && "bg-accent/20"
           )}>
-            {n.loading ? (
+            {n.progress !== undefined ? (
+              <div className="relative w-8 h-8 flex items-center justify-center">
+                <svg className="w-8 h-8 -rotate-90">
+                  <circle
+                    cx="16"
+                    cy="16"
+                    r="12"
+                    fill="transparent"
+                    stroke="currentColor"
+                    strokeWidth="2.5"
+                    className="opacity-20"
+                  />
+                  <circle
+                    cx="16"
+                    cy="16"
+                    r="12"
+                    fill="transparent"
+                    stroke="currentColor"
+                    strokeWidth="2.5"
+                    strokeDasharray={75.4}
+                    strokeDashoffset={75.4 - (75.4 * n.progress) / 100}
+                    strokeLinecap="round"
+                    className="transition-all duration-300 ease-out"
+                  />
+                </svg>
+                <span className="absolute text-[8px] font-bold">{Math.round(n.progress)}%</span>
+              </div>
+            ) : n.loading ? (
               <Loader2 size={18} className="animate-spin" />
             ) : (
               <>

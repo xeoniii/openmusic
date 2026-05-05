@@ -62,6 +62,14 @@ export function useAudioPlayer() {
     }
   }, [isPlaying]);
 
+  const seekRequest = useStore((s) => s.seekRequest);
+  useEffect(() => {
+    if (seekRequest !== null) {
+      audio.currentTime = seekRequest;
+      useStore.getState().clearSeekRequest();
+    }
+  }, [seekRequest]);
+
   useEffect(() => {
     audio.volume = volume;
   }, [volume]);

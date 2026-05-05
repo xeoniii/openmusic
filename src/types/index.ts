@@ -72,4 +72,5 @@ export interface Notification {
   message: string;
   type: "info" | "success" | "error";
   loading?: boolean;
+  progress?: number;
 }

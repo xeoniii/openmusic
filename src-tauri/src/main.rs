@@ -764,6 +764,12 @@ async fn fetch_track_metadata(query: String) -> Result<HarbourSearchResult, Stri
     Err("No metadata found for this track".to_string())
 }
 
+#[derive(Clone, Serialize)]
+struct DownloadProgress {
+    id: String,
+    progress: f64,
+}
+
 #[tauri::command]
 async fn download_track(
     app_handle: tauri::AppHandle,
@@ -772,8 +778,11 @@ async fn download_track(
     artist: String,
     _album: String,
     _cover_art: String,
+    download_id: String,
 ) -> Result<String, String> {
-    use std::process::Command;
+    use std::process::{Command, Stdio};
+    use std::io::{BufRead, BufReader};
+    use tauri::Emitter;
 
     let safe_title = title.replace("/", "_").replace("\\", "_");
     let safe_artist = artist.replace("/", "_").replace("\\", "_");
@@ -792,9 +801,9 @@ async fn download_track(
     let yt_dlp_path = get_yt_dlp_path(&app_handle).await;
     let ffmpeg_path = get_ffmpeg_path(&app_handle).await;
     
-    let output = if yt_dlp_path.exists() {
-        let mut cmd = Command::new(&yt_dlp_path);
-        cmd.args([
+    let mut cmd = if yt_dlp_path.exists() {
+        let mut c = Command::new(&yt_dlp_path);
+        c.args([
             "-4",
             "--no-cache-dir",
             "--no-check-certificates",
@@ -806,38 +815,65 @@ async fn download_track(
             "--output", target_path.to_str().ok_or("Invalid target path")?,
             "--no-playlist",
             "--prefer-ffmpeg",
+            "--newline",
+            "--progress",
         ]);
-
         if ffmpeg_path.exists() {
-            cmd.arg("--ffmpeg-location").arg(&ffmpeg_path);
+            c.arg("--ffmpeg-location").arg(&ffmpeg_path);
         }
-
-        cmd.arg(&search_query)
-            .output()
-            .map_err(|e| format!("Could not start local yt-dlp: {}", e))?
+        c.arg(&search_query);
+        c
     } else {
-        Command::new("yt-dlp")
-            .args([
-                "-4",
-                "--no-cache-dir",
-                "--no-check-certificates",
-                "--geo-bypass",
-                "--extractor-args", "youtube:player-client=ios,android,web",
-                "--extract-audio",
-                "--audio-format", "mp3",
-                "--audio-quality", "0",
-                "--output", target_path.to_str().ok_or("Invalid target path")?,
-                "--no-playlist",
-                "--prefer-ffmpeg",
-                &search_query
-            ])
-            .output()
-            .map_err(|e| format!("Could not start system yt-dlp: {}. Please ensure yt-dlp and ffmpeg are installed.", e))?
+        let mut c = Command::new("yt-dlp");
+        c.args([
+            "-4",
+            "--no-cache-dir",
+            "--no-check-certificates",
+            "--geo-bypass",
+            "--extractor-args", "youtube:player-client=ios,android,web",
+            "--extract-audio",
+            "--audio-format", "mp3",
+            "--audio-quality", "0",
+            "--output", target_path.to_str().ok_or("Invalid target path")?,
+            "--no-playlist",
+            "--prefer-ffmpeg",
+            "--newline",
+            "--progress",
+            &search_query
+        ]);
+        c
     };
 
-    if !output.status.success() {
-        let err = String::from_utf8_lossy(&output.stderr);
-        return Err(format!("Download failed: {}", err));
+    cmd.stdout(Stdio::piped());
+    cmd.stderr(Stdio::piped());
+
+    let mut child = cmd.spawn().map_err(|e| format!("Failed to spawn download process: {}", e))?;
+    let stdout = child.stdout.take().ok_or("Failed to capture stdout")?;
+    let reader = BufReader::new(stdout);
+
+    for line in reader.lines() {
+        if let Ok(l) = line {
+            if l.contains("[download]") && l.contains("%") {
+                // Parse percentage like "  10.5%"
+                let parts: Vec<&str> = l.split_whitespace().collect();
+                for p in parts {
+                    if p.contains("%") {
+                        if let Ok(val) = p.replace("%", "").parse::<f64>() {
+                            let _ = app_handle.emit("download-progress", DownloadProgress {
+                                id: download_id.clone(),
+                                progress: val,
+                            });
+                        }
+                    }
+                }
+            }
+        }
+    }
+
+    let status = child.wait().map_err(|e| format!("Failed to wait for download process: {}", e))?;
+
+    if !status.success() {
+        return Err("Download process exited with error".to_string());
     }
 
     // --- Automatic Metadata Tagging ---
@@ -914,6 +950,7 @@ pub struct TrackMetadata {
     pub year: Option<u32>,
     pub track_number: Option<u32>,
     pub cover_art: Option<String>,
+    pub lyrics: Option<String>,
 }
 
 #[tauri::command]
@@ -997,6 +1034,11 @@ async fn save_track_metadata(file_path: String, metadata: TrackMetadata) -> Resu
     }
     if let Some(track_number) = metadata.track_number {
         tag.set_track(track_number);
+    }
+    if let Some(lyrics) = metadata.lyrics {
+        if !lyrics.is_empty() {
+            tag.insert_text(ItemKey::Lyrics, lyrics);
+        }
     }
 
     if let Some(data) = fetched_cover {
@@ -1370,7 +1412,67 @@ fn handle_request(request: tiny_http::Request) {
     }
 }
 
+#[tauri::command]
+async fn fetch_lyrics(query: String) -> Result<Option<String>, String> {
+    let url = format!(
+        "https://lrclib.net/api/search?q={}",
+        urlencoding::encode(&query)
+    );
+
+    let client = reqwest::Client::new();
+    let resp = client
+        .get(url)
+        .header("User-Agent", "OpenMusic/0.6.3 (https://github.com/xeoniii/openmusic)")
+        .send()
+        .await
+        .map_err(|e| e.to_string())?;
+
+    let data: serde_json::Value = resp.json().await.map_err(|e| e.to_string())?;
+
+    if let Some(results) = data.as_array() {
+        if !results.is_empty() {
+            let best = &results[0];
+            let synced = best.get("syncedLyrics").and_then(|v| v.as_str());
+            let plain = best.get("plainLyrics").and_then(|v| v.as_str());
+            
+            return Ok(synced.or(plain).map(|s| s.to_string()));
+        }
+    }
+
+    Ok(None)
+}
+
+#[tauri::command]
+async fn fetch_image_as_base64(url: String) -> Result<String, String> {
+    let client = reqwest::Client::new();
+    let resp = client
+        .get(&url)
+        .header("User-Agent", "Mozilla/5.0")
+        .send()
+        .await
+        .map_err(|e| format!("Failed to fetch image: {}", e))?;
+
+    let content_type = resp
+        .headers()
+        .get("content-type")
+        .and_then(|v| v.to_str().ok())
+        .unwrap_or("image/jpeg")
+        .to_string();
+
+    let bytes = resp.bytes().await.map_err(|e| e.to_string())?;
+    let b64 = general_purpose::STANDARD.encode(bytes);
+
+    Ok(format!("data:{};base64,{}", content_type, b64))
+}
+
 fn main() {
+    #[cfg(target_os = "linux")]
+    {
+        // Disable WebKitGTK's native MPRIS integration to prevent duplicate entries
+        std::env::set_var("WEBKIT_DISABLE_MPRIS", "1");
+        std::env::set_var("WEBKIT_DISABLE_MPRIS_PLUGIN", "1");
+    }
+
     start_asset_server(1422);
     tauri::Builder::default()
         .plugin(tauri_plugin_shell::init())
@@ -1461,6 +1563,8 @@ fn main() {
             update_media_playback,
             clear_media_controls,
             delete_track,
+            fetch_lyrics,
+            fetch_image_as_base64,
         ])
         .on_window_event(|window, event| {
             if let tauri::WindowEvent::CloseRequested { api, .. } = event {
@@ -1472,5 +1576,5 @@ fn main() {
             }
         })
         .run(tauri::generate_context!())
-        .expect("error while running OpenMusic v0.6.2");
+        .expect("error while running OpenMusic v0.6.3");
 }

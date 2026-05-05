@@ -120,6 +120,7 @@ export interface TrackMetadata {
   year?: number;
   track_number?: number;
   cover_art?: string;
+  lyrics?: string;
 }
 
 export async function saveTrackMetadata(filePath: string, metadata: TrackMetadata): Promise<void> {
@@ -222,7 +223,8 @@ export async function downloadTrack(
   title: string,
   artist: string,
   album: string,
-  coverArt: string
+  coverArt: string,
+  downloadId: string
 ): Promise<string> {
   return await invoke("download_track", {
     musicDir,
@@ -230,6 +232,7 @@ export async function downloadTrack(
     artist,
     album,
     coverArt,
+    downloadId,
   });
 }
 

@@ -41,35 +41,70 @@ export function useMediaControls() {
     if (!currentTrack) {
       lastTrackIdRef.current = null;
       clearMediaControls().catch(() => {});
+      if ('mediaSession' in navigator) {
+        navigator.mediaSession.metadata = null;
+      }
       return;
     }
 
     if (lastTrackIdRef.current === currentTrack.id) return;
     lastTrackIdRef.current = currentTrack.id;
 
-    // Try to resolve a cover URL the OS can render.
-    // On Linux (MPRIS) this needs to be a `file://` URI or an http URL.
-    // The cover cache already stores http URLs from iTunes / other sources.
-    const state = useStore.getState();
-    let coverUrl: string | undefined;
+    const syncMetadata = async () => {
+      const state = useStore.getState();
+      let coverUrl: string | undefined;
 
-    const cached = state.discordCoverCache?.[currentTrack.id];
-    if (cached && cached !== "none") {
-      coverUrl = cached; // http URL from iTunes metadata
-    }
+      const cached = state.discordCoverCache?.[currentTrack.id];
+      if (cached && cached !== "none") {
+        coverUrl = cached; // http URL from iTunes metadata
+      } else {
+        const localCover = await getCoverArt(currentTrack.filePath);
+        if (localCover) {
+          coverUrl = localCover;
+        }
+      }
 
-    updateMediaMetadata(
-      currentTrack.title,
-      currentTrack.artist,
-      currentTrack.album,
-      coverUrl,
-      currentTrack.duration || undefined
-    ).catch(() => {});
+      await updateMediaMetadata(
+        currentTrack.title,
+        currentTrack.artist,
+        currentTrack.album,
+        coverUrl,
+        currentTrack.duration || undefined
+      );
+
+      // Also sync the native webview Media Session so the "old" MPRIS entry
+      // looks identical to the souvlaki one, and can handle hardware keys properly.
+      if ('mediaSession' in navigator) {
+        navigator.mediaSession.metadata = new MediaMetadata({
+          title: currentTrack.title,
+          artist: currentTrack.artist,
+          album: currentTrack.album,
+          artwork: coverUrl ? [{ src: coverUrl, sizes: '512x512' }] : undefined,
+        });
+      }
+      
+      // Update playback state immediately after metadata
+      await updateMediaPlayback(useStore.getState().isPlaying, useStore.getState().currentTime || 0);
+    };
+
+    syncMetadata().catch(() => {});
   }, [currentTrack?.id]);
 
   // ── 2. Sync playback status ──────────────────────────────────────
+  const lastTimeRef = useRef(0);
+
   useEffect(() => {
-    updateMediaPlayback(isPlaying, currentTime || undefined).catch(() => {});
+    // Only update progress to backend on play state change OR a seek (jump > 2s).
+    // MPRIS handles the smooth progress bar ticking automatically.
+    const timeDiff = Math.abs((currentTime || 0) - lastTimeRef.current);
+    if (timeDiff > 2 || currentTime === 0) {
+      lastTimeRef.current = currentTime || 0;
+      updateMediaPlayback(isPlaying, currentTime || 0).catch(() => {});
+    }
+  }, [currentTime]);
+
+  useEffect(() => {
+    updateMediaPlayback(isPlaying, currentTime || 0).catch(() => {});
   }, [isPlaying]);
 
   // ── 3. Listen for OS media key events ────────────────────────────
@@ -119,8 +154,24 @@ export function useMediaControls() {
 
     subscribe();
 
+    // Attach native Media Session action handlers.
+    // This allows the webview's native MPRIS to properly trigger our store actions
+    // if it intercepts the hardware keys before souvlaki does.
+    if ('mediaSession' in navigator) {
+      navigator.mediaSession.setActionHandler('play', () => useStore.getState().setIsPlaying(true));
+      navigator.mediaSession.setActionHandler('pause', () => useStore.getState().setIsPlaying(false));
+      navigator.mediaSession.setActionHandler('previoustrack', () => useStore.getState().playPrev());
+      navigator.mediaSession.setActionHandler('nexttrack', () => useStore.getState().playNext());
+    }
+
     return () => {
       unlisteners.forEach((fn) => fn());
+      if ('mediaSession' in navigator) {
+        navigator.mediaSession.setActionHandler('play', null);
+        navigator.mediaSession.setActionHandler('pause', null);
+        navigator.mediaSession.setActionHandler('previoustrack', null);
+        navigator.mediaSession.setActionHandler('nexttrack', null);
+      }
     };
   }, []);
 }

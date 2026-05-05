@@ -1,12 +1,14 @@
 import React, { useState } from "react";
 import {
   Palette, FolderOpen, RefreshCw,
-  Info, Music2, Volume2, FolderInput, ZoomIn,
+  Info, Music2, Volume2, FolderInput, ZoomIn, Sun, Moon,
 } from "lucide-react";
 import { useStore } from "../../store";
 import { useLibrary } from "../../hooks/useLibrary";
 import { ACCENT_PRESETS, pluralize } from "../../utils/helpers";
 import { setTrayEnabled } from "../../utils/tauriApi";
+import { ConfirmationModal } from "../UI/ConfirmationModal";
+import { ThemedSlider } from "../UI/ThemedSlider";
 import type { AccentPreset } from "../../types";
 
 function Section({
@@ -19,7 +21,7 @@ function Section({
   children: React.ReactNode;
 }) {
   return (
-    <section className="glass rounded-2xl p-5">
+    <section className="glass rounded-2xl p-5 min-w-[280px] flex-1">
       <div className="flex items-center gap-2 mb-4">
         <span className="text-accent">{icon}</span>
         <h2 className="font-display font-semibold text-sm text-text-primary">
@@ -44,10 +46,13 @@ export function SettingsView() {
     setGuiScale,
     trayEnabled,
     setTrayEnabled,
+    theme,
+    setTheme,
   } = useStore();
 
   const { changeMusicDirectory, changePlaylistsDirectory, rescanDirectory } = useLibrary();
   const [scanning, setScanning] = useState(false);
+  const [showFlashbangWarning, setShowFlashbangWarning] = useState(false);
 
   const handleRescan = async () => {
     setScanning(true);
@@ -65,6 +70,55 @@ export function SettingsView() {
       </div>
 
       <div className="flex flex-row flex-wrap gap-6 p-8">
+
+        {/* ── Theme ────────────────────────────────────────────────────────── */}
+        <Section icon={theme === "dark" ? <Moon size={16} /> : <Sun size={16} />} title="Theme">
+          <p className="text-xs text-text-muted mb-3">
+            Choose between dark and light mode. Default is Dark.
+          </p>
+          <div className="flex items-center justify-between p-3 rounded-xl bg-surface-overlay border border-border-subtle">
+            <div>
+              <p className="text-sm font-medium text-text-primary">Mode</p>
+              <p className="text-xs text-text-muted capitalize">{theme} Mode</p>
+            </div>
+            <div className="flex gap-2 p-1 bg-surface-raised rounded-lg border border-border-subtle">
+              <button 
+                onClick={() => setTheme("dark")}
+                className={`p-2 rounded-md transition-all ${theme === "dark" ? "bg-accent text-black shadow-accent" : "text-text-muted hover:text-text-primary"}`}
+                title="Dark Mode"
+              >
+                <Moon size={16} />
+              </button>
+              <button 
+                onClick={() => {
+                  if (theme === "dark") {
+                    setShowFlashbangWarning(true);
+                  } else {
+                    setTheme("dark");
+                  }
+                }}
+                className={`p-2 rounded-md transition-all ${theme === "light" ? "bg-accent text-black shadow-accent" : "text-text-muted hover:text-text-primary"}`}
+                title="Light Mode"
+              >
+                <Sun size={16} />
+              </button>
+            </div>
+          </div>
+        </Section>
+
+        {showFlashbangWarning && (
+          <ConfirmationModal
+            title="Light Mode Warning"
+            message="This will give you a flashbang. Are you sure you want to switch to light mode?"
+            confirmLabel="Yes"
+            cancelLabel="No"
+            onConfirm={() => {
+              setTheme("light");
+              setShowFlashbangWarning(false);
+            }}
+            onCancel={() => setShowFlashbangWarning(false)}
+          />
+        )}
 
         {/* ── Accent Color ─────────────────────────────────────────────────────── */}
         <Section icon={<Palette size={16} />} title="Accent Color">
@@ -113,17 +167,15 @@ export function SettingsView() {
         <Section icon={<Volume2 size={16} />} title="Audio">
           <div className="flex items-center gap-3">
             <Volume2 size={14} className="text-text-muted flex-shrink-0" />
-            <input
-              type="range"
+            <ThemedSlider
               min={0}
               max={1}
               step={0.01}
               value={volume}
-              onChange={(e) => setVolume(parseFloat(e.target.value))}
-              className="flex-1 seek-bar"
-              style={{ "--progress": `${volume * 100}%` } as React.CSSProperties}
+              onChange={setVolume}
+              formatTooltip={(v: number) => `${Math.round(v * 100)}%`}
             />
-            <span className="text-xs text-text-muted w-8 text-right font-mono">
+            <span className="text-xs text-text-muted w-10 text-right font-mono">
               {Math.round(volume * 100)}%
             </span>
           </div>
@@ -209,15 +261,13 @@ export function SettingsView() {
           </p>
           <div className="flex items-center gap-3">
             <span className="text-xs text-text-muted font-mono">0.8</span>
-            <input
-              type="range"
+            <ThemedSlider
               min={0.8}
               max={2}
               step={0.05}
               value={guiScale}
-              onChange={(e) => setGuiScale(parseFloat(e.target.value))}
-              className="flex-1 seek-bar"
-              style={{ "--progress": `${((guiScale - 0.8) / 1.2) * 100}%` } as React.CSSProperties}
+              onChange={setGuiScale}
+              formatTooltip={(v: number) => `${v.toFixed(2)}x`}
             />
             <span className="text-xs text-text-muted font-mono">2</span>
           </div>
@@ -254,7 +304,7 @@ export function SettingsView() {
         {/* ── About ─────────────────────────────────────────────────────────────── */}
         <div className="w-full text-center py-8 mt-4 border-t border-border-subtle">
           <p className="text-xs text-text-muted flex flex-col gap-1">
-            <span className="font-display font-black text-sm text-text-secondary tracking-tight">OpenMusic <span className="text-accent">v0.6.2</span></span>
+            <span className="font-display font-black text-sm text-text-secondary tracking-tight">OpenMusic <span className="text-accent">v0.6.3</span></span>
             <span>Crafted with love for high-quality audio.</span>
             <span>Made by xeoniii.dev</span>
             <span className="mt-2 opacity-60">Build ID: {new Date().toISOString().split('T')[0].replace(/-/g, '')}</span>

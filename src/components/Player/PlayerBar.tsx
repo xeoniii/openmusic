@@ -7,6 +7,7 @@ import { useStore } from "../../store";
 import { useAudioPlayer } from "../../hooks/useAudioPlayer";
 import { CoverArt } from "../Dashboard/MusicCard";
 import { formatDuration, truncate } from "../../utils/helpers";
+import { ThemedSlider } from "../UI/ThemedSlider";
 
 /** Filled volume icon based on level */
 function VolumeIcon({ volume }: { volume: number }) {
@@ -43,19 +44,11 @@ export function PlayerBar() {
 
   const progress = duration > 0 ? (currentTime / duration) * 100 : 0;
 
-  const handleSeek = useCallback(
-    (e: React.ChangeEvent<HTMLInputElement>) => {
-      const pct = parseFloat(e.target.value) / 100;
-      seek(pct * duration);
-    },
-    [duration, seek]
-  );
-
   const handleVolumeChange = useCallback(
-    (e: React.ChangeEvent<HTMLInputElement>) => {
-      setVolume(parseFloat(e.target.value));
+    (val: number) => {
+      setVolume(val);
     },
-    []
+    [setVolume]
   );
 
   const cycleRepeat = () => {
@@ -64,7 +57,7 @@ export function PlayerBar() {
     setRepeatMode(modes[(idx + 1) % modes.length]);
   };
 
-return (
+  return (
     <div
       className="glass-heavy border-t border-border-glass flex items-center gap-4 px-4 flex-shrink-0"
       style={{ height: "var(--player-height)" }}
@@ -96,7 +89,7 @@ return (
       </div>
 
       {/* ── Transport Controls (Center) ──────────────────────────────────────────────── */}
-      <div className="flex flex-col items-center gap-2 flex-1 min-w-0">
+      <div className="flex flex-col items-center gap-1 flex-1 min-w-0">
         {/* Controls row */}
         <div className="flex items-center gap-1">
           {/* Shuffle */}
@@ -155,19 +148,15 @@ return (
           <span className="text-[11px] text-text-muted font-mono w-8 text-right flex-shrink-0">
             {formatDuration(currentTime)}
           </span>
-          <div className="flex-1 relative">
-            <input
-              type="range"
-              min={0}
-              max={100}
-              step={0.1}
-              value={progress}
-              onChange={handleSeek}
-              disabled={!currentTrack}
-              className="w-full seek-bar disabled:opacity-30"
-              style={{ "--progress": `${progress}%` } as React.CSSProperties}
-            />
-          </div>
+          <ThemedSlider
+            min={0}
+            max={duration}
+            step={0.1}
+            value={currentTime}
+            onChange={seek}
+            disabled={!currentTrack}
+            formatTooltip={formatDuration}
+          />
           <span className="text-[11px] text-text-muted font-mono w-8 flex-shrink-0">
             {formatDuration(duration)}
           </span>
@@ -176,8 +165,8 @@ return (
 
       {/* ── Volume (Right) ────────────────────────────────────────────────────────── */}
       <div
-        className="flex items-center gap-2 flex-shrink-0"
-        style={{ width: 140 }}
+        className="flex items-center gap-2 flex-shrink-0 mr-4"
+        style={{ width: 160 }}
       >
         <button
           onClick={toggleMute}
@@ -186,18 +175,16 @@ return (
         >
           <VolumeIcon volume={volume} />
         </button>
-        <input
-          type="range"
+        <ThemedSlider
           min={0}
           max={1}
           step={0.01}
           value={volume}
           onChange={handleVolumeChange}
-          className="w-20 seek-bar"
-          style={{ "--progress": `${volume * 100}%` } as React.CSSProperties}
+          formatTooltip={(v) => `${Math.round(v * 100)}%`}
         />
-        <span className="text-[11px] text-text-muted font-mono w-7 text-right flex-shrink-0">
-          {Math.round(volume * 100)}
+        <span className="text-[11px] text-text-muted font-mono w-10 text-right flex-shrink-0">
+          {Math.round(volume * 100)}%
         </span>
       </div>
     </div>

@@ -19,6 +19,7 @@
   --accent-muted:  rgba(27, 217, 106, 0.15);
   --accent-glow:   rgba(27, 217, 106, 0.35);
   --text-accent:   #1bd96a;
+  --accent-rgb:    27, 217, 106;
 }
 
 [data-accent="electric-blue"] {
@@ -28,6 +29,7 @@
   --accent-muted:  rgba(59, 130, 246, 0.15);
   --accent-glow:   rgba(59, 130, 246, 0.35);
   --text-accent:   #60a5fa;
+  --accent-rgb:    59, 130, 246;
 }
 
 [data-accent="violet"] {
@@ -37,6 +39,7 @@
   --accent-muted:  rgba(139, 92, 246, 0.15);
   --accent-glow:   rgba(139, 92, 246, 0.35);
   --text-accent:   #a78bfa;
+  --accent-rgb:    139, 92, 246;
 }
 
 [data-accent="rose"] {
@@ -46,6 +49,7 @@
   --accent-muted:  rgba(244, 63, 94, 0.15);
   --accent-glow:   rgba(244, 63, 94, 0.35);
   --text-accent:   #fb7185;
+  --accent-rgb:    244, 63, 94;
 }
 
 [data-accent="amber"] {
@@ -55,6 +59,7 @@
   --accent-muted:  rgba(245, 158, 11, 0.15);
   --accent-glow:   rgba(245, 158, 11, 0.35);
   --text-accent:   #fbbf24;
+  --accent-rgb:    245, 158, 11;
 }
 
 [data-accent="cyan"] {
@@ -64,6 +69,7 @@
   --accent-muted:  rgba(6, 182, 212, 0.15);
   --accent-glow:   rgba(6, 182, 212, 0.35);
   --text-accent:   #22d3ee;
+  --accent-rgb:    6, 182, 212;
 }
 
 /* ══════════════════════════════════════════════════════════════════════════════
@@ -75,6 +81,7 @@
   --surface-raised:  #16181d;
   --surface-overlay: #1d2028;
   --surface-glass:   rgba(22, 24, 29, 0.65);
+  --surface-glass-heavy: rgba(15, 16, 20, 0.80);
 
   /* Text */
   --text-primary:   #f0f2f5;
@@ -88,6 +95,33 @@
   /* Player bar */
   --player-height: 100px;
   --sidebar-width: 224px;
+}
+
+[data-theme="light"] {
+  /* Surfaces */
+  --surface-base:    #f8fafc;
+  --surface-raised:  #ffffff;
+  --surface-overlay: #f1f5f9;
+  --surface-glass:   rgba(255, 255, 255, 0.7);
+  --surface-glass-heavy: rgba(255, 255, 255, 0.95);
+
+  /* Text */
+  --text-primary:   #0f172a;
+  --text-secondary: #475569;
+  --text-muted:     #94a3b8;
+
+  /* Borders */
+  --border-subtle: rgba(0, 0, 0, 0.05);
+  --border-glass:  rgba(0, 0, 0, 0.08);
+
+  /* Override accent opacities for light mode visibility */
+  --accent-muted: rgba(var(--accent-rgb, 0, 0, 0), 0.12);
+}
+
+/* Add RGB versions of accents for dynamic opacity if needed, 
+   but for now we'll just ensure text-accent is readable. */
+[data-theme="light"] [data-accent] {
+  --text-accent: var(--accent-dim);
 }
 
 /* ══════════════════════════════════════════════════════════════════════════════
@@ -106,6 +140,7 @@ body {
   -moz-osx-font-smoothing: grayscale;
   overflow: hidden;
   user-select: none;
+  transition: background 0.3s ease, color 0.3s ease;
 }
 
 #root { height: 100%; display: flex; flex-direction: column; }
@@ -129,15 +164,17 @@ body {
   backdrop-filter: blur(16px) saturate(1.6);
   -webkit-backdrop-filter: blur(16px) saturate(1.6);
   border: 1px solid var(--border-glass);
-  box-shadow: 0 4px 24px rgba(0,0,0,0.4), inset 0 1px 0 rgba(255,255,255,0.06);
+  box-shadow: 0 4px 24px rgba(0,0,0,0.1), inset 0 1px 0 var(--border-subtle);
+  transition: background 0.3s ease, border-color 0.3s ease, box-shadow 0.3s ease;
 }
 
 .glass-heavy {
-  background: rgba(15, 16, 20, 0.80);
+  background: var(--surface-glass-heavy);
   backdrop-filter: blur(32px) saturate(1.8);
   -webkit-backdrop-filter: blur(32px) saturate(1.8);
   border: 1px solid var(--border-glass);
-  box-shadow: 0 8px 40px rgba(0,0,0,0.55), inset 0 1px 0 rgba(255,255,255,0.08);
+  box-shadow: 0 8px 40px rgba(0,0,0,0.15), inset 0 1px 0 var(--border-subtle);
+  transition: background 0.3s ease, border-color 0.3s ease, box-shadow 0.3s ease;
 }
 
 /* Accent fill */
@@ -185,9 +222,15 @@ input[type="range"]::-webkit-slider-thumb:hover {
     var(--border-glass) var(--progress, 0%),
     var(--border-glass) 100%
   ) !important;
+  height: 4px;
+  border-radius: 99px;
 }
 .seek-bar::-webkit-slider-runnable-track {
   background: transparent !important;
+  border: none !important;
+}
+.seek-bar::-webkit-slider-thumb {
+  margin-top: -4px !important; /* Center 12px thumb on 4px track */
 }
 
 /* Equalizer bars */
@@ -262,7 +305,8 @@ input[type="range"]::-webkit-slider-thumb:hover {
   transition: 
     transform 0.4s cubic-bezier(0.2, 1, 0.2, 1),
     box-shadow 0.4s cubic-bezier(0.2, 1, 0.2, 1),
-    border-color 0.2s ease;
+    border-color 0.2s ease,
+    background 0.3s ease;
   cursor: pointer;
   position: relative;
   backface-visibility: hidden;
@@ -272,7 +316,7 @@ input[type="range"]::-webkit-slider-thumb:hover {
   transform: translateY(-8px);
   border-color: rgba(255,255,255,0.15);
   box-shadow: 
-    0 20px 40px rgba(0,0,0,0.6),
+    0 20px 40px rgba(0,0,0,0.2),
     0 0 20px var(--accent-glow);
   z-index: 10;
 }
@@ -281,7 +325,7 @@ input[type="range"]::-webkit-slider-thumb:hover {
   border-color: var(--accent);
   box-shadow: 
     0 0 0 1px var(--accent), 
-    0 20px 40px rgba(0,0,0,0.6),
+    0 20px 40px rgba(0,0,0,0.2),
     0 0 30px var(--accent-glow);
   background: linear-gradient(to bottom, var(--surface-raised), var(--accent-muted));
 }
@@ -405,4 +449,3 @@ input[type="range"]::-webkit-slider-thumb:hover {
   border-radius: 50%;
   opacity: 0.5;
 }
-

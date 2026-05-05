@@ -31,7 +31,7 @@ function ViewRouter() {
 
 export default function App() {
   const {
-    activeView, accentColor, musicDir, playlistsDir, coversDir,
+    activeView, accentColor, theme, musicDir, playlistsDir, coversDir,
     setMusicDir, setPlaylistsDir, setCoversDir, guiScale
   } = useStore();
   const { initialize } = useLibrary();
@@ -42,6 +42,10 @@ export default function App() {
   useEffect(() => {
     document.documentElement.dataset.accent = accentColor;
   }, [accentColor]);
+
+  useEffect(() => {
+    document.documentElement.dataset.theme = theme;
+  }, [theme]);
 
   useEffect(() => {
     document.documentElement.style.fontSize = `${guiScale * 14}px`;
