@@ -35,6 +35,7 @@ export function PlaylistView() {
     setQueue,
     setIsPlaying,
     setActiveView,
+    setAddTrack,
   } = useStore(useShallow((s) => ({
     activePlaylistId: s.activePlaylistId,
     playlists: s.playlists,
@@ -42,11 +43,11 @@ export function PlaylistView() {
     setQueue: s.setQueue,
     setIsPlaying: s.setIsPlaying,
     setActiveView: s.setActiveView,
+    setAddTrack: s.setAddTrack,
   })));
 
   const { removePlaylistData, removeTrackFromPlaylist, updatePlaylistData } = useLibrary();
 
-  const [addTrack, setAddTrack] = useState<Track | null>(null);
   const [showManageTracks, setShowManageTracks] = useState(false);
 
   const sensors = useSensors(
@@ -221,7 +222,7 @@ export function PlaylistView() {
               items={playlistTracks.map((t) => t.id)}
               strategy={verticalListSortingStrategy}
             >
-              <div className="flex flex-col gap-0.5">
+              <div className="flex flex-col gap-2">
                 {playlistTracks.map((track, i) => (
                   <SortableMusicCard
                     key={track.id}
@@ -243,12 +244,6 @@ export function PlaylistView() {
           </DndContext>
         )}
       </div>
-      {addTrack && (
-        <AddToPlaylistModal
-          track={addTrack}
-          onClose={() => setAddTrack(null)}
-        />
-      )}
       {showManageTracks && (
         <ManagePlaylistTracksModal
           playlist={playlist}

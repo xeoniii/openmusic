@@ -1,10 +1,9 @@
-import React, { useMemo, useState, useEffect, useCallback } from "react";
+import React, { useMemo, useCallback } from "react";
 import { Play, Music2, Disc3, Clock, FolderOpen, Shuffle, ChevronRight } from "lucide-react";
 import { useStore } from "../../store";
 import { useShallow } from "zustand/react/shallow";
 import { MusicCard } from "./MusicCard";
 import { formatDuration, pluralize, shuffleArray } from "../../utils/helpers";
-import { getCoverArt } from "../../utils/tauriApi";
 
 function StatCard({
   icon,
@@ -41,8 +40,6 @@ export function HomeView() {
       toggleShuffle: s.toggleShuffle,
     })));
 
-  const [heroCover, setHeroCover] = useState<string | null>(null);
-
   const recentTracks = useMemo(() => {
     return [...tracks]
       .sort((a, b) => b.dateAdded - a.dateAdded)
@@ -63,13 +60,6 @@ export function HomeView() {
     () => new Set(tracks.map((t) => t.album)).size,
     [tracks]
   );
-
-  const heroTrack = tracks[0] ?? null;
-
-  useEffect(() => {
-    if (!heroTrack) return;
-    getCoverArt(heroTrack.filePath).then(setHeroCover);
-  }, [heroTrack?.id]);
 
   const handlePlayAll = () => {
     if (!tracks.length) return;
@@ -128,23 +118,14 @@ export function HomeView() {
           className="relative rounded-[32px] overflow-hidden group/hero"
           style={{ minHeight: 220 }}
         >
-          {/* Background blur from cover art */}
-          {heroCover ? (
-            <img
-              src={heroCover}
-              alt=""
-              className="absolute inset-0 w-full h-full object-cover scale-110 blur-[80px] opacity-30 transition-opacity duration-700"
-              aria-hidden
-            />
-          ) : (
-            <div
-              className="absolute inset-0 opacity-20"
-              style={{
-                background:
-                  "radial-gradient(circle at 30% 50%, var(--accent) 0%, transparent 70%)",
-              }}
-            />
-          )}
+          {/* Background glow from accent color — no image blur = no compositing layer */}
+          <div
+            className="absolute inset-0 opacity-25 transition-opacity duration-700"
+            style={{
+              background:
+                "radial-gradient(ellipse at 30% 50%, var(--accent) 0%, transparent 60%), radial-gradient(ellipse at 70% 80%, var(--accent-dim) 0%, transparent 50%)",
+            }}
+          />
           
           <div className="absolute inset-0 bg-gradient-to-br from-black/40 via-transparent to-transparent pointer-events-none" />
 

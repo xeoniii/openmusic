@@ -1,4 +1,7 @@
 import { useEffect, useRef, useCallback } from "react";
+
+// Throttle interval for time updates — reduces Zustand store writes from ~15/s to 2/s
+const TIME_UPDATE_INTERVAL = 500;
 import { useStore } from "../store";
 import { useShallow } from "zustand/react/shallow";
 import { readAudioFile, updateDiscordRpc, clearDiscordRpc, fetchTrackMetadata } from "../utils/tauriApi";
@@ -151,7 +154,15 @@ export function useAudioPlayer() {
   }, [currentTrack?.id, isPlaying]);
 
   useEffect(() => {
-    const onTimeUpdate = () => setCurrentTime(audio.currentTime);
+    // Throttled time update — reduces store writes from ~15/s to 2/s
+    let lastTimeWrite = 0;
+    const onTimeUpdate = () => {
+      const now = performance.now();
+      if (now - lastTimeWrite >= TIME_UPDATE_INTERVAL) {
+        lastTimeWrite = now;
+        setCurrentTime(audio.currentTime);
+      }
+    };
     const onDurationChange = () => {
       let d = audio.duration || 0;
       if (!isFinite(d)) {

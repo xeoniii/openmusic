@@ -84,9 +84,15 @@ interface UISlice {
   lastVolume: number;
   libraryViewMode: "grid" | "list";
   theme: "dark" | "light";
+  showAbout: boolean;
+  editTrack: Track | null;
+  addTrack: Track | null;
+  deleteTrack: Track | null;
+  history: { view: ViewId; playlistId: string | null }[];
+  historyIndex: number;
 
-  setActiveView: (v: ViewId) => void;
-  setActivePlaylist: (id: string | null) => void;
+  setActiveView: (v: ViewId, skipHistory?: boolean) => void;
+  setActivePlaylist: (id: string | null, skipHistory?: boolean) => void;
   setSearchQuery: (q: string) => void;
   setAccentColor: (c: AccentPreset) => void;
   setVolume: (v: number) => void;
@@ -97,6 +103,15 @@ interface UISlice {
   toggleMute: () => void;
   setLibraryViewMode: (m: "grid" | "list") => void;
   setTheme: (t: "dark" | "light") => void;
+  setShowAbout: (v: boolean) => void;
+  setEditTrack: (t: Track | null) => void;
+  setAddTrack: (t: Track | null) => void;
+  setDeleteTrack: (t: Track | null) => void;
+  goBack: () => void;
+  goForward: () => void;
+
+
+
   notifications: Notification[];
   addNotification: (message: string, type?: "info" | "success" | "error", duration?: number, loading?: boolean, title?: string) => string;
   updateNotification: (id: string, updates: Partial<Omit<Notification, "id">>) => void;
@@ -294,10 +309,34 @@ export const useStore = create<Store>()(
       trayEnabled: true,
       libraryViewMode: "list",
       theme: "dark",
+      showAbout: false,
+      editTrack: null,
+      addTrack: null,
+      deleteTrack: null,
+      history: [{ view: "home", playlistId: null }],
+      historyIndex: 0,
 
-      setActiveView: (v) => set({ activeView: v, activePlaylistId: null }),
-      setActivePlaylist: (id) =>
-        set({ activePlaylistId: id, activeView: id ? "playlist" : "library" }),
+      setActiveView: (v, skipHistory = false) => {
+        const { history, historyIndex } = get();
+        if (!skipHistory) {
+          const newHistory = history.slice(0, historyIndex + 1);
+          newHistory.push({ view: v, playlistId: null });
+          set({ history: newHistory, historyIndex: newHistory.length - 1 });
+        }
+        set({ activeView: v, activePlaylistId: null });
+      },
+
+      setActivePlaylist: (id, skipHistory = false) => {
+        const { history, historyIndex } = get();
+        const v = id ? "playlist" : "library" as ViewId;
+        if (!skipHistory) {
+          const newHistory = history.slice(0, historyIndex + 1);
+          newHistory.push({ view: v, playlistId: id });
+          set({ history: newHistory, historyIndex: newHistory.length - 1 });
+        }
+        set({ activePlaylistId: id, activeView: v });
+      },
+
       setSearchQuery: (q) => set({ searchQuery: q }),
       setAccentColor: (c) => {
         document.documentElement.dataset.accent = c;
@@ -335,6 +374,36 @@ export const useStore = create<Store>()(
       },
       setLibraryViewMode: (m) => set({ libraryViewMode: m }),
       setTheme: (t) => set({ theme: t }),
+      setShowAbout: (v) => set({ showAbout: v }),
+      setEditTrack: (t) => set({ editTrack: t }),
+      setAddTrack: (t) => set({ addTrack: t }),
+      setDeleteTrack: (t) => set({ deleteTrack: t }),
+      goBack: () => {
+        const { history, historyIndex, setActiveView, setActivePlaylist } = get();
+        if (historyIndex > 0) {
+          const prev = history[historyIndex - 1];
+          set({ historyIndex: historyIndex - 1 });
+          if (prev.view === "playlist") {
+            setActivePlaylist(prev.playlistId, true);
+          } else {
+            setActiveView(prev.view, true);
+          }
+        }
+      },
+      goForward: () => {
+        const { history, historyIndex, setActiveView, setActivePlaylist } = get();
+        if (historyIndex < history.length - 1) {
+          const next = history[historyIndex + 1];
+          set({ historyIndex: historyIndex + 1 });
+          if (next.view === "playlist") {
+            setActivePlaylist(next.playlistId, true);
+          } else {
+            setActiveView(next.view, true);
+          }
+        }
+      },
+
+
       notifications: [],
       addNotification: (message, type = "info", duration = 5000, loading = false, title) => {
         const id = Math.random().toString(36).substring(7);

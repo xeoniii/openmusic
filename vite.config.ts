@@ -7,6 +7,9 @@ export default defineConfig({
   server: {
     port: 5173,
     strictPort: true,
+    watch: {
+      ignored: ["**/src-tauri/**"],
+    },
   },
   // Tauri uses the `TAURI_PLATFORM` env var; prevent Vite from clearing the
   // screen so Tauri's logs remain visible

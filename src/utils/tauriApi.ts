@@ -141,8 +141,8 @@ export async function saveTrackMetadata(filePath: string, metadata: TrackMetadat
   await invoke("save_track_metadata", { filePath, metadata: deepSnake(metadata) });
 }
 
-const MAX_COVER_CACHE = 200;
-const CACHE_TTL = 5000; // 5 seconds
+const MAX_COVER_CACHE = 50;
+const CACHE_TTL = 30000; // 30 seconds — long enough for visible items, short enough to evict
 
 interface CacheEntry {
   url: string;
@@ -151,7 +151,7 @@ interface CacheEntry {
 
 const coverCache = new Map<string, CacheEntry>();
 
-// Prune cache every 2 seconds
+// Prune cache periodically
 setInterval(() => {
   const now = Date.now();
   for (const [key, entry] of coverCache.entries()) {
@@ -159,7 +159,7 @@ setInterval(() => {
       coverCache.delete(key);
     }
   }
-}, 2000);
+}, 10000);
 
 export async function getCoverArt(filePath: string, size: number = 256): Promise<string | null> {
   const cacheKey = `${filePath}_${size}`;

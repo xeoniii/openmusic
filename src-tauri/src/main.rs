@@ -1268,6 +1268,9 @@ fn handle_request(request: tiny_http::Request) {
                     response.add_header(
                         Header::from_bytes(&b"Access-Control-Allow-Origin"[..], &b"*"[..]).unwrap(),
                     );
+                    response.add_header(
+                        Header::from_bytes(&b"Cache-Control"[..], &b"public, max-age=604800, immutable"[..]).unwrap(),
+                    );
                     let _ = request.respond(response);
                     return;
                 }
@@ -1308,6 +1311,13 @@ fn handle_request(request: tiny_http::Request) {
                                     Header::from_bytes(
                                         &b"Access-Control-Allow-Origin"[..],
                                         &b"*"[..],
+                                    )
+                                    .unwrap(),
+                                );
+                                response.add_header(
+                                    Header::from_bytes(
+                                        &b"Cache-Control"[..],
+                                        &b"public, max-age=604800, immutable"[..],
                                     )
                                     .unwrap(),
                                 );

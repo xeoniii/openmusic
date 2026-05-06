@@ -31,8 +31,6 @@ import {
 export function useMediaControls() {
   const currentTrack = useStore((s) => s.currentTrack);
   const isPlaying = useStore((s) => s.isPlaying);
-  const currentTime = useStore((s) => s.currentTime);
-  const duration = useStore((s) => s.duration);
 
   // ── 1. Sync metadata when the track changes ──────────────────────
   const lastTrackIdRef = useRef<string | null>(null);
@@ -91,20 +89,23 @@ export function useMediaControls() {
   }, [currentTrack?.id]);
 
   // ── 2. Sync playback status ──────────────────────────────────────
-  const lastTimeRef = useRef(0);
+  // Only sync on play/pause changes and periodic 5s heartbeat — not every time tick
+  const lastSyncRef = useRef(0);
 
   useEffect(() => {
-    // Only update progress to backend on play state change OR a seek (jump > 2s).
-    // MPRIS handles the smooth progress bar ticking automatically.
-    const timeDiff = Math.abs((currentTime || 0) - lastTimeRef.current);
-    if (timeDiff > 2 || currentTime === 0) {
-      lastTimeRef.current = currentTime || 0;
-      updateMediaPlayback(isPlaying, currentTime || 0).catch(() => {});
-    }
-  }, [currentTime]);
+    // Immediate sync on play/pause
+    updateMediaPlayback(isPlaying, useStore.getState().currentTime || 0).catch(() => {});
+    lastSyncRef.current = Date.now();
+  }, [isPlaying]);
 
+  // Periodic heartbeat for progress bar (every 5s while playing)
   useEffect(() => {
-    updateMediaPlayback(isPlaying, currentTime || 0).catch(() => {});
+    if (!isPlaying) return;
+    const interval = setInterval(() => {
+      const state = useStore.getState();
+      updateMediaPlayback(state.isPlaying, state.currentTime || 0).catch(() => {});
+    }, 5000);
+    return () => clearInterval(interval);
   }, [isPlaying]);
 
   // ── 3. Listen for OS media key events ────────────────────────────

@@ -170,8 +170,8 @@ body {
 
 .glass-heavy {
   background: var(--surface-glass-heavy);
-  backdrop-filter: blur(32px) saturate(1.8);
-  -webkit-backdrop-filter: blur(32px) saturate(1.8);
+  backdrop-filter: blur(12px) saturate(1.6);
+  -webkit-backdrop-filter: blur(12px) saturate(1.6);
   border: 1px solid var(--border-glass);
   box-shadow: 0 8px 40px rgba(0,0,0,0.15), inset 0 1px 0 var(--border-subtle);
   transition: background 0.3s ease, border-color 0.3s ease, box-shadow 0.3s ease;
@@ -258,6 +258,10 @@ input[type="range"]::-webkit-slider-thumb:hover {
 @keyframes scaleIn {
   from { opacity: 0; transform: scale(0.96); }
   to   { opacity: 1; transform: scale(1); }
+}
+
+.animate-scale-in {
+  animation: scaleIn 0.15s cubic-bezier(0.16, 1, 0.3, 1);
 }
 
 @keyframes equalizer {

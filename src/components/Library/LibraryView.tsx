@@ -1,4 +1,5 @@
 import React, { useMemo, useState, useCallback, useRef, useEffect, memo } from "react";
+import { List as VList } from "react-window";
 import {
   Search, LayoutGrid, List, SlidersHorizontal,
   Music2, RefreshCw, Plus, PlusCircle
@@ -13,6 +14,7 @@ import { AddToPlaylistModal } from "./AddToPlaylistModal";
 import { EditMetadataModal } from "./EditMetadataModal";
 import type { Track } from "../../types";
 
+const LIST_ITEM_HEIGHT = 80; // px per row in list view
 type SortKey = "title" | "artist" | "album" | "duration";
 
 const ListContent = memo(function ListContent({
@@ -20,30 +22,51 @@ const ListContent = memo(function ListContent({
   onAddToPlaylist,
   onEditMetadata,
   onDelete,
+  height,
 }: {
   tracks: Track[];
   onAddToPlaylist: (track: Track) => void;
   onEditMetadata: (track: Track) => void;
   onDelete: (track: Track) => void;
+  height: number;
 }) {
+  // react-window v2 uses rowComponent instead of children
+  const RowComponent = useCallback(
+    (props: { index: number; style: React.CSSProperties; ariaAttributes: any }) => {
+      const track = tracks[props.index];
+      if (!track) return null;
+      return (
+        <div style={props.style} className="py-1 px-1">
+          <MusicCard
+            key={track.id}
+            track={track}
+            allTracks={tracks}
+            trackIndex={props.index}
+            sourceId="library"
+            viewMode="list"
+            onAddToPlaylist={onAddToPlaylist}
+            onEditMetadata={onEditMetadata}
+            onDelete={onDelete}
+          />
+        </div>
+      );
+    },
+    [tracks, onAddToPlaylist, onEditMetadata, onDelete]
+  );
+
   return (
-    <div className="flex flex-col gap-0.5">
-      {tracks.map((track, i) => (
-        <MusicCard
-          key={track.id}
-          track={track}
-          allTracks={tracks}
-          trackIndex={i}
-          sourceId="library"
-          viewMode="list"
-          onAddToPlaylist={onAddToPlaylist}
-          onEditMetadata={onEditMetadata}
-          onDelete={onDelete}
-        />
-      ))}
-    </div>
+    <VList
+      style={{ height }}
+      rowComponent={RowComponent as any}
+      rowCount={tracks.length}
+      rowHeight={LIST_ITEM_HEIGHT}
+      rowProps={{} as any}
+      overscanCount={5}
+    />
   );
 });
+
+const GRID_PAGE_SIZE = 60;
 
 const GridContent = memo(function GridContent({
   tracks,
@@ -56,29 +79,50 @@ const GridContent = memo(function GridContent({
   onEditMetadata: (track: Track) => void;
   onDelete: (track: Track) => void;
 }) {
+  const [visibleCount, setVisibleCount] = useState(GRID_PAGE_SIZE);
+  const visible = tracks.slice(0, visibleCount);
+
+  // Reset when tracks change (search/sort)
+  useEffect(() => {
+    setVisibleCount(GRID_PAGE_SIZE);
+  }, [tracks]);
+
   return (
-    <div className="music-grid">
-      {tracks.map((track, i) => (
-        <MusicCard
-          key={track.id}
-          track={track}
-          allTracks={tracks}
-          trackIndex={i}
-          sourceId="library"
-          viewMode="grid"
-          onAddToPlaylist={onAddToPlaylist}
-          onEditMetadata={onEditMetadata}
-          onDelete={onDelete}
-        />
-      ))}
-    </div>
+    <>
+      <div className="music-grid">
+        {visible.map((track, i) => (
+          <MusicCard
+            key={track.id}
+            track={track}
+            allTracks={tracks}
+            trackIndex={i}
+            sourceId="library"
+            viewMode="grid"
+            onAddToPlaylist={onAddToPlaylist}
+            onEditMetadata={onEditMetadata}
+            onDelete={onDelete}
+          />
+        ))}
+      </div>
+      {visibleCount < tracks.length && (
+        <div className="flex justify-center py-6">
+          <button
+            onClick={() => setVisibleCount((c) => c + GRID_PAGE_SIZE)}
+            className="btn-accent px-6 py-2 text-sm"
+          >
+            Show more ({tracks.length - visibleCount} remaining)
+          </button>
+        </div>
+      )}
+    </>
   );
 });
 
 export function LibraryView() {
   const {
     tracks, isScanning, searchQuery, setSearchQuery, musicDir,
-    libraryViewMode, setLibraryViewMode, removeTrack, addNotification
+    libraryViewMode, setLibraryViewMode, removeTrack, addNotification,
+    setAddTrack, setEditTrack, setDeleteTrack
   } = useStore(useShallow((s) => ({
     tracks: s.tracks,
     isScanning: s.isScanning,
@@ -89,17 +133,22 @@ export function LibraryView() {
     setLibraryViewMode: s.setLibraryViewMode,
     removeTrack: s.removeTrack,
     addNotification: s.addNotification,
+    setAddTrack: s.setAddTrack,
+    setEditTrack: s.setEditTrack,
+    setDeleteTrack: s.setDeleteTrack,
   })));
+
   const { rescanDirectory } = useLibrary();
 
   const [sortKey, setSortKey] = useState<SortKey>("title");
   const [sortAsc, setSortAsc] = useState(true);
-  const [addTrack, setAddTrack] = useState<Track | null>(null);
   const [addTracks, setAddTracks] = useState<Track[] | null>(null);
-  const [editTrack, setEditTrack] = useState<Track | null>(null);
+
 
   const [localSearch, setLocalSearch] = useState(searchQuery);
   const debounceRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const contentRef = useRef<HTMLDivElement>(null);
+  const [listHeight, setListHeight] = useState(600);
 
   useEffect(() => {
     if (debounceRef.current) clearTimeout(debounceRef.current);
@@ -111,6 +160,20 @@ export function LibraryView() {
     };
   }, [localSearch, setSearchQuery]);
 
+  // Measure container height for the virtual list
+  useEffect(() => {
+    const el = contentRef.current;
+    if (!el) return;
+    const ro = new ResizeObserver((entries) => {
+      for (const entry of entries) {
+        setListHeight(entry.contentRect.height);
+      }
+    });
+    ro.observe(el);
+    setListHeight(el.clientHeight);
+    return () => ro.disconnect();
+  }, []);
+
   const toggleSort = useCallback((key: SortKey) => {
     if (sortKey === key) setSortAsc((a) => !a);
     else { setSortKey(key); setSortAsc(true); }
@@ -118,24 +181,16 @@ export function LibraryView() {
 
   const handleAddToPlaylist = useCallback((track: Track) => {
     setAddTrack(track);
-  }, []);
+  }, [setAddTrack]);
 
   const handleEditMetadata = useCallback((track: Track) => {
     setEditTrack(track);
-  }, []);
+  }, [setEditTrack]);
 
   const handleDeleteTrack = useCallback(async (track: Track) => {
-    if (!confirm(`Are you sure you want to delete "${track.title}"? This will physically remove the file from your disk.`)) return;
-    
-    try {
-      await deleteTrack(track.filePath);
-      removeTrack(track.id);
-      addNotification(`Deleted "${track.title}"`, "info");
-    } catch (err: any) {
-      console.error(err);
-      addNotification(`Failed to delete track: ${err}`, "error");
-    }
-  }, [removeTrack, addNotification]);
+    setDeleteTrack(track);
+  }, [setDeleteTrack]);
+
 
   const handleImport = async () => {
     if (!musicDir) return;
@@ -279,7 +334,7 @@ export function LibraryView() {
       </div>
 
       {/* Content */}
-      <div className="flex-1 overflow-y-auto px-6 pb-4">
+      <div ref={contentRef} className="flex-1 overflow-hidden px-6 pb-4">
         {filtered.length === 0 ? (
           <div className="empty-state pt-16">
             <Music2 size={40} className="text-text-muted" />
@@ -291,28 +346,17 @@ export function LibraryView() {
             </div>
           </div>
         ) : libraryViewMode === "list" ? (
-          <ListContent tracks={filtered} onAddToPlaylist={handleAddToPlaylist} onEditMetadata={handleEditMetadata} onDelete={handleDeleteTrack} />
+          <ListContent tracks={filtered} onAddToPlaylist={handleAddToPlaylist} onEditMetadata={handleEditMetadata} onDelete={handleDeleteTrack} height={listHeight} />
         ) : (
-          <GridContent tracks={filtered} onAddToPlaylist={handleAddToPlaylist} onEditMetadata={handleEditMetadata} onDelete={handleDeleteTrack} />
+          <div className="overflow-y-auto h-full">
+            <GridContent tracks={filtered} onAddToPlaylist={handleAddToPlaylist} onEditMetadata={handleEditMetadata} onDelete={handleDeleteTrack} />
+          </div>
         )}
       </div>
-      {addTrack && (
-        <AddToPlaylistModal
-          track={addTrack}
-          onClose={() => setAddTrack(null)}
-        />
-      )}
       {addTracks && (
         <AddToPlaylistModal
           tracks={addTracks}
           onClose={() => setAddTracks(null)}
-        />
-      )}
-
-      {editTrack && (
-        <EditMetadataModal
-          track={editTrack}
-          onClose={() => setEditTrack(null)}
         />
       )}
     </div>

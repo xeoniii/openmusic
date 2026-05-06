@@ -136,7 +136,9 @@ export const MusicCard = memo(function MusicCard({
     return (
       <div
         onClick={handlePlay}
-        className={`flex items-center gap-3 px-3 py-2 rounded-xl cursor-pointer transition-all duration-150 group
+        data-track-id={track.id}
+        data-context={onRemoveFromPlaylist ? "playlist" : "library"}
+        className={`flex items-center gap-3 px-3 py-3 rounded-xl cursor-pointer transition-all duration-150 group h-full
           ${isActive
             ? "bg-accent-muted border border-accent"
             : "hover:bg-surface-overlay border border-transparent"}
@@ -152,7 +154,7 @@ export const MusicCard = memo(function MusicCard({
           </div>
         )}
         <div className="w-10 h-10 rounded-lg overflow-hidden flex-shrink-0 relative">
-          <CoverArt track={track} size={128} />
+          <CoverArt track={track} size={64} />
           <div className={`absolute inset-0 bg-black/40 flex items-center justify-center transition-opacity ${isActive ? "opacity-100" : "opacity-0 group-hover:opacity-100"}`}>
             {isActive && isPlaying ? (
               <div className="flex gap-0.5 items-end h-4">
@@ -223,9 +225,11 @@ export const MusicCard = memo(function MusicCard({
     <div
       className={`music-card group ${isActive ? "playing" : ""}`}
       onClick={handlePlay}
+      data-track-id={track.id}
+      data-context={onRemoveFromPlaylist ? "playlist" : "library"}
     >
       <div className="relative aspect-square overflow-hidden">
-        <CoverArt track={track} size={256} />
+        <CoverArt track={track} size={200} />
 
         <div
           className={`absolute inset-0 flex items-center justify-center bg-black/40 transition-opacity duration-200 ${
