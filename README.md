@@ -1,7 +1,7 @@
 # 🎵 OpenMusic
 [![License: GPL v3](https://img.shields.io/badge/License-GPLv3-blue.svg)](https://www.gnu.org/licenses/gpl-3.0)
 
-A modern, offline-first music player for Linux, built with **Tauri 2**, **React 18**, and **Tailwind CSS 3**.
+A modern, offline-first music player for Desktop and Android, built with **Tauri 2**, **React 18**, and **Vanilla CSS** with **Tailwind CSS 3**.
 
 ![OpenMusic UI — glassmorphic dark theme with accent](./docs/screenshot.png)
 
@@ -12,13 +12,14 @@ A modern, offline-first music player for Linux, built with **Tauri 2**, **React 
 | Feature | Details |
 |---|---|
 | **Local library scan** | Recursively indexes MP3, FLAC, OGG, WAV, AAC, M4A, OPUS, AIFF |
-| **Embedded metadata** | Reads ID3 / Vorbis / MP4 tags via `lofty` (title, artist, album, year, track #, cover art) |
+| **Embedded metadata** | Reads ID3 / Vorbis / MP4 tags via `lofty` with base64 cover art extraction |
 | **Glassmorphic UI** | Deep charcoal dark theme with `backdrop-filter: blur()` glass panels |
-| **Dynamic accent colors** | 6 presets (Modrinth Green, Electric Blue, Violet, Rose, Amber, Cyan) — all surface glows, borders, and buttons update instantly via CSS variables |
-| **Playback controls** | Play/pause, previous/next, seek bar, volume slider, repeat (off/one/all), shuffle |
-| **Playlists** | Create/delete playlists; each stored as a subfolder under `playlists/` with a `playlist.json` manifest |
-| **Keyboard shortcut** | `Space` → toggle play/pause |
-| **Persistent settings** | Accent color, volume, repeat/shuffle mode survive restarts (Zustand + localStorage) |
+| **Dynamic accent colors** | 6 presets (Modrinth Green, Electric Blue, Violet, Rose, Amber, Cyan) with CSS variable theming |
+| **Performance Focused** | **List Virtualization** for smooth scrolling through thousands of tracks |
+| **Memory Optimized** | Throttled state updates, HTTP caching for assets, and downsized cover art to keep RAM usage low (200-400MB) |
+| **Custom Context Menus** | Theme-aware menus for playback controls, window management, and metadata editing |
+| **Native Integration** | **Discord Rich Presence** and **System Media Controls** (souvlaki) support |
+| **Persistent settings** | Accent color, volume, and playback modes survive restarts (Zustand + localStorage) |
 
 ---
 
@@ -28,29 +29,25 @@ A modern, offline-first music player for Linux, built with **Tauri 2**, **React 
 openmusic/
 ├── music/                  ← Drop audio files here (always scanned)
 ├── playlists/              ← Auto-managed; one subfolder per playlist
-│   └── <Playlist Name>/
-│       └── playlist.json
 ├── src/                    ← React frontend
 │   ├── components/
 │   │   ├── Dashboard/      ← HomeView, MusicCard
-│   │   ├── Library/        ← LibraryView, PlaylistView
-│   │   ├── Player/         ← PlayerBar
-│   │   ├── Settings/       ← SettingsView
-│   │   └── Sidebar/        ← Sidebar
+│   │   ├── Library/        ← Virtualized LibraryView, PlaylistView
+│   │   ├── Player/         ← PlayerBar with progress throttling
+│   │   ├── Settings/       ← SettingsView, "Reload App" utility
+│   │   └── Sidebar/        ← Navigation
 │   ├── hooks/
-│   │   ├── useAudioPlayer.ts   ← HTML5 Audio element lifecycle
+│   │   ├── useAudioPlayer.ts   ← HTML5 Audio lifecycle
 │   │   └── useLibrary.ts       ← Scan / playlist CRUD
 │   ├── store/index.ts      ← Zustand global store
-│   ├── types/index.ts      ← Shared TypeScript interfaces
-│   └── utils/
-│       ├── helpers.ts      ← formatDuration, color presets, etc.
-│       └── tauriApi.ts     ← Typed invoke() wrappers
+│   └── types/index.ts      ← Shared TypeScript interfaces
 ├── src-tauri/
-│   ├── src/main.rs         ← All Rust commands
+│   ├── src/
+│   │   ├── main.rs         ← Tauri entry point and command handlers
+│   │   └── media_controls.rs ← OS media control integration
 │   ├── Cargo.toml
-│   └── tauri.conf.json
-├── tailwind.config.js      ← Accent color tokens + custom utilities
-├── src/index.css           ← CSS variable theming system + glassmorphic base
+│   └── tauri.conf.json     ← Tauri 2.0 configuration
+├── index.css               ← Design system & glassmorphic base
 └── package.json
 ```
 
@@ -63,7 +60,6 @@ openmusic/
 curl --proto '=https' --tlsv1.2 -sSf https://sh.rustup.rs | sh
 
 # Node.js 18+
-# (use nvm or your distro's package manager)
 
 # Tauri system dependencies (Ubuntu / Linux Mint)
 sudo apt install -y \
@@ -79,48 +75,31 @@ sudo apt install -y \
 # 1. Install JS dependencies
 npm install
 
-# 2. Development (hot reload)
+# 2. Development (Desktop)
 npm run tauri dev
 
-# 3. Production build
+# 3. Development (Android)
+npm run tauri android dev
+
+# 4. Production build
 npm run tauri build
 ```
 
-The built AppImage / `.deb` / `.rpm` will be in `src-tauri/target/release/bundle/`.
-
 ---
 
-## How It Works — Frontend & Metadata Flow
+## Performance & Optimization
 
-### 1. App bootstrap (`App.tsx`)
+### 1. List Virtualization
+To handle massive libraries without UI lag, the Library view uses virtualization. Only the visible items are rendered in the DOM, drastically reducing memory footprint and DOM nodes.
 
-On mount, `useLibrary.initialize()` calls the Rust `get_app_paths` command which creates (if needed):
-```
-~/.local/share/openmusic/music/
-~/.local/share/openmusic/playlists/
-```
-It then calls `scan_music_directory` on all configured paths.
+### 2. Memory Management
+- **Progress Throttling**: Audio progress updates are throttled to reduce state churn and CPU usage.
+- **Image Optimization**: Cover art is downsized and served with proper HTTP cache headers via a local asset server.
+- **Resource Cleanup**: Explicit cleanup of audio buffers and state on app reload.
 
-### 2. Rust scan (`src-tauri/src/main.rs`)
-
-`scan_music_directory` walks the directory tree with `walkdir`, filters to audio extensions, and for each file calls `lofty::read_from_path()` to extract:
-- Title, Artist, Album, Album Artist, Genre, Year, Track Number
-- Duration (from audio properties, not just the tag)
-- Cover art (first `CoverFront` or `Other` picture → base64 data-URI)
-
-Results are returned as a `Vec<Track>` (JSON-serialised, snake_case → camelCase in `tauriApi.ts`).
-
-### 3. Audio playback (`useAudioPlayer.ts`)
-
-A single `<audio>` element is created outside React's render cycle. When `currentTrack` changes, the hook calls `invoke("read_audio_file")` which returns the file as a `data:audio/...;base64,...` URI — no HTTP server required, no CORS. This is assigned to `audio.src` and `.play()` is called.
-
-### 4. Dynamic theming
-
-`index.css` defines six `[data-accent="..."]` attribute selectors, each overriding the `--accent`, `--accent-dim`, `--accent-bright`, `--accent-muted`, and `--accent-glow` CSS custom properties. Changing the accent in Settings calls:
-```ts
-document.documentElement.dataset.accent = preset;
-```
-Every color that references `var(--accent*)` — Tailwind utilities, glassmorphic borders, box-shadows, seek-bar fills — updates instantly with zero re-renders.
+### 3. Native Integration
+- **Media Controls**: Full support for OS-level media keys and "Now Playing" widgets via Souvlaki.
+- **Rich Presence**: Shows your current track and artist on Discord.
 
 ---
 
@@ -131,21 +110,6 @@ Copy/move audio files into `~/.local/share/openmusic/music/`. OpenMusic scans it
 
 ### Option B — Add an existing folder
 Go to **Settings → Add Music Folder**, pick any directory. OpenMusic will scan it immediately and remember it across restarts.
-
----
-
-## Playlist File Format
-
-```json
-{
-  "id": "a3f2e1d0c9b8...",
-  "name": "Late Night",
-  "folder_path": "/home/user/.local/share/openmusic/playlists/Late Night",
-  "track_ids": ["id1", "id2", "id3"],
-  "created_at": 1714000000,
-  "cover_art": null
-}
-```
 
 ---
 
