@@ -1,7 +1,7 @@
 {
   "$schema": "../node_modules/@tauri-apps/cli/schema.json",
   "productName": "OpenMusic",
-  "version": "0.6.4",
+  "version": "0.6.5",
   "identifier": "dev.xeoniii.openmusic",
   "build": {
     "beforeDevCommand": "npm run dev",
@@ -50,7 +50,7 @@
         "height": 800,
         "minWidth": 900,
         "minHeight": 600,
-        "decorations": true,
+        "decorations": false,
         "transparent": false,
         "devtools": true
       }

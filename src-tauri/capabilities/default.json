@@ -25,6 +25,7 @@
         }
       ]
     },
-    "shell:default"
+    "shell:default",
+    "notification:default"
   ]
 }

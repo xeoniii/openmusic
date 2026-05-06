@@ -14,6 +14,7 @@ import type {
   ViewId,
   AppSettings,
   Notification,
+  ShortcutMap,
 } from "../types";
 import { shuffleArray } from "../utils/helpers";
 
@@ -35,6 +36,8 @@ interface PlayerSlice {
   setDuration: (d: number) => void;
   playNext: () => void;
   playPrev: () => void;
+  skipForward: () => void;
+  skipBackward: () => void;
   syncQueue: (tracks: Track[], sourceId: string) => void;
   
   seekRequest: number | null;
@@ -90,6 +93,12 @@ interface UISlice {
   deleteTrack: Track | null;
   history: { view: ViewId; playlistId: string | null }[];
   historyIndex: number;
+  customTitlebar: boolean;
+  isFullscreen: boolean;
+  discordEnabled: boolean;
+  systemNotifications: boolean;
+  lowEndMode: boolean;
+  shortcuts: ShortcutMap;
 
   setActiveView: (v: ViewId, skipHistory?: boolean) => void;
   setActivePlaylist: (id: string | null, skipHistory?: boolean) => void;
@@ -100,6 +109,12 @@ interface UISlice {
   toggleShuffle: () => void;
   setGuiScale: (s: number) => void;
   setTrayEnabled: (t: boolean) => void;
+  setCustomTitlebar: (v: boolean) => void;
+  setFullscreen: (v: boolean) => void;
+  setDiscordEnabled: (v: boolean) => void;
+  setSystemNotifications: (v: boolean) => void;
+  setLowEndMode: (v: boolean) => void;
+  clearDiscordCoverCache: () => void;
   toggleMute: () => void;
   setLibraryViewMode: (m: "grid" | "list") => void;
   setTheme: (t: "dark" | "light") => void;
@@ -107,6 +122,8 @@ interface UISlice {
   setEditTrack: (t: Track | null) => void;
   setAddTrack: (t: Track | null) => void;
   setDeleteTrack: (t: Track | null) => void;
+  setShortcut: (action: keyof ShortcutMap, key: string, ctrl?: boolean, shift?: boolean, alt?: boolean) => void;
+  resetShortcuts: () => void;
   goBack: () => void;
   goForward: () => void;
 
@@ -194,7 +211,7 @@ export const useStore = create<Store>()(
           return;
         }
 
-        // If at the beginning of the first track, wrap to the end of the queue
+        // If at hte beginning of hte first track, wrap to hte end of hte queue
         let prevIndex: number;
         if (queueIndex > 0) {
           prevIndex = queueIndex - 1;
@@ -208,6 +225,16 @@ export const useStore = create<Store>()(
           currentTime: 0,
           isPlaying: isPlaying,
         });
+      },
+
+      skipForward: () => {
+        const { currentTime, duration, requestSeek } = get();
+        requestSeek(Math.min(currentTime + 5, duration));
+      },
+
+      skipBackward: () => {
+        const { currentTime, requestSeek } = get();
+        requestSeek(Math.max(currentTime - 5, 0));
       },
 
       syncQueue: (tracks, sourceId) => {
@@ -315,6 +342,11 @@ export const useStore = create<Store>()(
       deleteTrack: null,
       history: [{ view: "home", playlistId: null }],
       historyIndex: 0,
+      customTitlebar: true,
+      isFullscreen: false,
+      discordEnabled: true,
+      systemNotifications: true,
+      lowEndMode: false,
 
       setActiveView: (v, skipHistory = false) => {
         const { history, historyIndex } = get();
@@ -363,6 +395,45 @@ export const useStore = create<Store>()(
       },
       setGuiScale: (s) => set({ guiScale: s }),
       setTrayEnabled: (t) => set({ trayEnabled: t }),
+      setCustomTitlebar: (v) => set({ customTitlebar: v }),
+      setFullscreen: (v) => set({ isFullscreen: v }),
+      setDiscordEnabled: (v) => set({ discordEnabled: v }),
+      setSystemNotifications: (v) => set({ systemNotifications: v }),
+      setLowEndMode: (v) => set({ lowEndMode: v }),
+      clearDiscordCoverCache: () => set({ discordCoverCache: {} }),
+      
+      shortcuts: {
+        togglePlay: { key: "Space", ctrl: false, shift: false, alt: false },
+        skipForward: { key: "ArrowRight", ctrl: false, shift: false, alt: false },
+        skipBackward: { key: "ArrowLeft", ctrl: false, shift: false, alt: false },
+        playNext: { key: "ArrowRight", ctrl: true, shift: false, alt: false },
+        playPrev: { key: "ArrowLeft", ctrl: true, shift: false, alt: false },
+        volumeUp: { key: "ArrowUp", ctrl: false, shift: false, alt: false },
+        volumeDown: { key: "ArrowDown", ctrl: false, shift: false, alt: false },
+      },
+
+      setShortcut: (action, key, ctrl = false, shift = false, alt = false) => {
+        set((s) => ({
+          shortcuts: {
+            ...s.shortcuts,
+            [action]: { key, ctrl, shift, alt },
+          },
+        }));
+      },
+
+      resetShortcuts: () => {
+        set({
+          shortcuts: {
+            togglePlay: { key: "Space", ctrl: false, shift: false, alt: false },
+            skipForward: { key: "ArrowRight", ctrl: false, shift: false, alt: false },
+            skipBackward: { key: "ArrowLeft", ctrl: false, shift: false, alt: false },
+            playNext: { key: "ArrowRight", ctrl: true, shift: false, alt: false },
+            playPrev: { key: "ArrowLeft", ctrl: true, shift: false, alt: false },
+            volumeUp: { key: "ArrowUp", ctrl: false, shift: false, alt: false },
+            volumeDown: { key: "ArrowDown", ctrl: false, shift: false, alt: false },
+          },
+        });
+      },
       lastVolume: 0.8,
       toggleMute: () => {
         const { volume, lastVolume } = get();
@@ -441,7 +512,12 @@ export const useStore = create<Store>()(
         trayEnabled: s.trayEnabled,
         libraryViewMode: s.libraryViewMode,
         theme: s.theme,
+        customTitlebar: s.customTitlebar,
+        discordEnabled: s.discordEnabled,
+        systemNotifications: s.systemNotifications,
+        lowEndMode: s.lowEndMode,
         discordCoverCache: s.discordCoverCache,
+        shortcuts: s.shortcuts,
       }),
     }
   )

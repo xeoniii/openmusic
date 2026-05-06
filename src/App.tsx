@@ -5,6 +5,7 @@ import { useLibrary } from "./hooks/useLibrary";
 import { useMediaControls } from "./hooks/useMediaControls";
 import { getAppPaths, setTrayEnabled, toggleFullscreen } from "./utils/tauriApi";
 import { getCurrentWindow } from "@tauri-apps/api/window";
+import { listen } from "@tauri-apps/api/event";
 import { invoke } from "@tauri-apps/api/core";
 import { Sidebar } from "./components/Sidebar/Sidebar";
 import { PlayerBar } from "./components/Player/PlayerBar";
@@ -21,6 +22,7 @@ import { EditMetadataModal } from "./components/Library/EditMetadataModal";
 import { AddToPlaylistModal } from "./components/Library/AddToPlaylistModal";
 import { ConfirmationModal } from "./components/UI/ConfirmationModal";
 import { deleteTrack } from "./utils/tauriApi";
+import { TitleBar } from "./components/UI/TitleBar";
 
 
 
@@ -44,7 +46,8 @@ export default function App() {
     activeView, accentColor, theme, musicDir, playlistsDir, coversDir,
     setMusicDir, setPlaylistsDir, setCoversDir, guiScale, showAbout,
     editTrack, addTrack, deleteTrackRequest, setEditTrack, setAddTrack,
-    setDeleteTrack, removeTrack, addNotification
+    setDeleteTrack, removeTrack, addNotification, customTitlebar,
+    setFullscreen, isFullscreen, lowEndMode
   } = useStore(useShallow((s) => ({
     activeView: s.activeView,
     accentColor: s.accentColor,
@@ -65,6 +68,11 @@ export default function App() {
     setDeleteTrack: s.setDeleteTrack,
     removeTrack: s.removeTrack,
     addNotification: s.addNotification,
+    customTitlebar: s.customTitlebar,
+    setFullscreen: s.setFullscreen,
+    isFullscreen: s.isFullscreen,
+    lowEndMode: s.lowEndMode,
+    shortcuts: s.shortcuts,
   })));
 
 
@@ -82,8 +90,56 @@ export default function App() {
   }, [theme]);
 
   useEffect(() => {
+    document.documentElement.dataset.lowend = String(lowEndMode);
+  }, [lowEndMode]);
+
+  useEffect(() => {
+    // Only apply window decorations on startup.
+    // We add a small delay to ensure the OS has finished mapping hte window.
+    const timer = setTimeout(() => {
+      invoke("set_window_decorations", { decorations: !customTitlebar }).catch(() => {});
+    }, 150);
+    return () => clearTimeout(timer);
+  }, []); // Run once on mount
+
+  useEffect(() => {
     document.documentElement.style.fontSize = `${guiScale * 14}px`;
   }, [guiScale]);
+
+  useEffect(() => {
+    const updateFullscreen = async () => {
+      const win = getCurrentWindow();
+      const full = await win.isFullscreen();
+      setFullscreen(full);
+    };
+
+    updateFullscreen();
+    
+    const unlistenEvent = listen<boolean>("fullscreen-changed", (event) => {
+      setFullscreen(event.payload);
+    });
+
+    const unlistenResize = getCurrentWindow().onResized(() => {
+      updateFullscreen();
+    });
+
+    // Failsafe polling for fullscreen state
+    const pollInterval = setInterval(updateFullscreen, 250);
+
+    // DOM resize listener
+    window.addEventListener("resize", updateFullscreen);
+
+    return () => {
+      unlistenEvent.then((fn) => fn());
+      unlistenResize.then((fn) => fn());
+      window.removeEventListener("resize", updateFullscreen);
+      clearInterval(pollInterval);
+    };
+  }, []);
+
+  useEffect(() => {
+    document.documentElement.dataset.fullscreen = isFullscreen.toString();
+  }, [isFullscreen]);
 
   useEffect(() => {
     async function bootstrap() {
@@ -106,18 +162,56 @@ export default function App() {
     }
   }, [musicDir, playlistsDir]);
 
+  useEffect(() => {
+    const shouldReturnToSettings = localStorage.getItem("returnToSettings");
+    if (shouldReturnToSettings === "true") {
+      localStorage.removeItem("returnToSettings");
+      useStore.getState().setActiveView("settings");
+    }
+  }, []);
+
   // Global keyboard shortcuts
   useEffect(() => {
     const onKey = (e: KeyboardEvent) => {
-      // Space → toggle play (only when not in an input)
-      if (
-        e.code === "Space" &&
-        !(e.target instanceof HTMLInputElement) &&
-        !(e.target instanceof HTMLTextAreaElement)
-      ) {
+      // Ignore if user is typing in an input
+      if (e.target instanceof HTMLInputElement || e.target instanceof HTMLTextAreaElement) {
+        return;
+      }
+
+      const {
+        isPlaying, setIsPlaying, currentTrack,
+        skipForward, skipBackward, playNext, playPrev,
+        volume, setVolume, shortcuts
+      } = useStore.getState();
+
+      if (!currentTrack) return;
+
+      const matches = (s: { key: string, ctrl: boolean, shift: boolean, alt: boolean }) => {
+        const keyMatch = e.key === s.key || (s.key === "Space" && e.code === "Space");
+        return keyMatch && e.ctrlKey === s.ctrl && e.shiftKey === s.shift && e.altKey === s.alt;
+      };
+
+      if (matches(shortcuts.togglePlay)) {
         e.preventDefault();
-        const { isPlaying, setIsPlaying, currentTrack } = useStore.getState();
-        if (currentTrack) setIsPlaying(!isPlaying);
+        setIsPlaying(!isPlaying);
+      } else if (matches(shortcuts.skipForward)) {
+        e.preventDefault();
+        skipForward();
+      } else if (matches(shortcuts.skipBackward)) {
+        e.preventDefault();
+        skipBackward();
+      } else if (matches(shortcuts.playNext)) {
+        e.preventDefault();
+        playNext();
+      } else if (matches(shortcuts.playPrev)) {
+        e.preventDefault();
+        playPrev();
+      } else if (matches(shortcuts.volumeUp)) {
+        e.preventDefault();
+        setVolume(Math.min(volume + 0.02, 1));
+      } else if (matches(shortcuts.volumeDown)) {
+        e.preventDefault();
+        setVolume(Math.max(volume - 0.02, 0));
       }
     };
     const onF11 = (e: KeyboardEvent) => {
@@ -162,16 +256,15 @@ export default function App() {
         background: "var(--surface-base)",
       }}
     >
+      <TitleBar />
       {/* Main workspace */}
       <div className="flex flex-1 min-h-0">
         {/* Sidebar */}
         <Sidebar />
 
         {/* Content pane */}
-        <main
-          className="flex-1 min-w-0 overflow-hidden"
-          style={{ background: "var(--surface-base)" }}
-        >
+        {/* Content pane */}
+        <main className="flex-1 min-w-0 overflow-hidden relative -ml-[1px]">
           <ViewRouter />
         </main>
       </div>

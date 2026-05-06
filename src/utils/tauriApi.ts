@@ -90,9 +90,8 @@ export async function deletePlaylist(filePath: string): Promise<void> {
   await invoke("delete_playlist", { filePath });
 }
 
-export async function deleteTrack(filePath: string): Promise<void> {
-  await invoke("delete_track", { filePath });
-}
+export const clearImageCache = () => invoke("clear_image_cache");
+export const deleteTrack = (filePath: string) => invoke("delete_track", { filePath });
 
 export async function importPlaylist(playlistsDir: string, sourcePath: string): Promise<Playlist> {
   const raw = await invoke<Record<string, unknown>>("import_playlist", {
@@ -161,8 +160,8 @@ setInterval(() => {
   }
 }, 10000);
 
-export async function getCoverArt(filePath: string, size: number = 256): Promise<string | null> {
-  const cacheKey = `${filePath}_${size}`;
+export async function getCoverArt(filePath: string, size: number = 256, lowEnd: boolean = false): Promise<string | null> {
+  const cacheKey = `${filePath}_${size}_${lowEnd}`;
   const cached = coverCache.get(cacheKey);
 
   if (cached) {
@@ -173,7 +172,7 @@ export async function getCoverArt(filePath: string, size: number = 256): Promise
   try {
     const result = await invoke<string | null>("get_cover_art", { filePath });
     if (result) {
-      const url = `${convertFileSrc(result)}?thumb=1&size=${size}`;
+      const url = `${convertFileSrc(result)}?thumb=1&size=${size}${lowEnd ? "&lowend=1" : ""}`;
 
       if (coverCache.size >= MAX_COVER_CACHE) {
         const firstKey = coverCache.keys().next().value;

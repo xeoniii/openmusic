@@ -33,13 +33,15 @@ const CoverArt = memo(function CoverArt({
   const [coverUrl, setCoverUrl] = useState<string | null>(null);
   const [imgError, setImgError] = useState(false);
 
+  const lowEndMode = useStore(s => s.lowEndMode);
+  
   useEffect(() => {
     let cancelled = false;
-    getCoverArt(track.filePath, size).then((url) => {
+    getCoverArt(track.filePath, size, lowEndMode).then((url) => {
       if (!cancelled) setCoverUrl(url);
     });
     return () => { cancelled = true; };
-  }, [track.filePath, size]);
+  }, [track.filePath, size, lowEndMode]);
 
   if (coverUrl && !imgError) {
     return (

@@ -131,7 +131,7 @@ export function PlaylistView() {
   return (
     <div className="flex flex-col h-full">
       {/* Header */}
-      <div className="relative px-6 py-5 border-b border-border-subtle flex-shrink-0">
+      <div className="relative px-6 py-6 border-b border-border-subtle flex-shrink-0">
         {/* Blurred bg */}
         <div
           className="absolute inset-0 opacity-10 pointer-events-none"

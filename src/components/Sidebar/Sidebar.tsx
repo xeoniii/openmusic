@@ -69,11 +69,11 @@ export function Sidebar() {
 
   return (
     <aside
-      className="flex flex-col h-full glass-heavy border-r border-border-glass z-50"
+      className="flex flex-col h-full glass-heavy !border-y-0 !border-l-0 border-r border-border-glass z-50 !shadow-none"
       style={{ width: "var(--sidebar-width)", minWidth: "var(--sidebar-width)" }}
     >
       {/* Logo */}
-      <div className="flex items-center gap-2.5 px-4 py-5">
+      <div className="flex items-center gap-2.5 px-4 py-6">
         <div
           className="w-8 h-8 rounded-lg bg-accent flex items-center justify-center shadow-accent flex-shrink-0"
           style={{ boxShadow: "0 0 16px var(--accent-glow)" }}

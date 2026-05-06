@@ -1,10 +1,16 @@
-import React from "react";
-import { X, Music2, Globe, Heart } from "lucide-react";
+import React, { useState, useEffect } from "react";
+import { X, Music2, Globe, Heart, Github } from "lucide-react";
 import { open } from "@tauri-apps/plugin-shell";
+import { getVersion } from "@tauri-apps/api/app";
 import { useStore } from "../../store";
 
 export function AboutModal() {
   const { setShowAbout } = useStore();
+  const [appVersion, setAppVersion] = useState<string>("0.6.5");
+
+  useEffect(() => {
+    getVersion().then(setAppVersion).catch(() => {});
+  }, []);
 
   const handleOpenLink = async (url: string) => {
     try {
@@ -12,6 +18,20 @@ export function AboutModal() {
     } catch (err) {
       console.error("Failed to open link:", err);
     }
+  };
+
+  const getBuildId = () => {
+    const vParts = appVersion.split('.');
+    if (vParts.length < 3) return "00000000000";
+    
+    const now = new Date();
+    const yearStr = now.getFullYear().toString(); // 2026
+    const y1 = yearStr.slice(0, 2); // 20
+    const y2 = yearStr.slice(2, 4); // 26
+    const mm = (now.getMonth() + 1).toString().padStart(2, '0'); // 05
+    const dd = now.getDate().toString().padStart(2, '0'); // 06
+    
+    return `${y1}${vParts[0]}${y2}${vParts[1]}${mm}${vParts[2]}${dd}`;
   };
 
   return (
@@ -45,7 +65,7 @@ export function AboutModal() {
             Open<span className="text-accent">Music</span>
           </h3>
           <p className="text-xs font-bold text-accent uppercase tracking-[0.2em] mb-6 opacity-80">
-            Version 0.6.4
+            Version {appVersion}
           </p>
 
           <div className="space-y-4 text-text-secondary leading-relaxed text-sm">
@@ -54,9 +74,8 @@ export function AboutModal() {
             </p>
             
             <div className="pt-4 flex flex-col gap-3 items-center">
-              <div className="flex items-center gap-2 text-text-primary font-semibold">
-                <Heart size={14} className="text-rose-500 fill-rose-500" />
-                <span>Crafted by xeoniii.dev</span>
+              <div className="flex items-center gap-2 text-text-primary font-semibold italic opacity-90">
+                <span>Crafted with love by xeoniii.dev</span>
               </div>
               
               <div className="flex items-center gap-4 pt-2">
@@ -72,15 +91,18 @@ export function AboutModal() {
                   className="p-2 rounded-xl bg-surface-overlay hover:bg-accent-muted hover:text-accent transition-all"
                   title="GitHub"
                 >
-                  <Music2 size={18} />
+                  <Github size={18} />
                 </button>
               </div>
             </div>
           </div>
 
-          <div className="mt-10 pt-6 border-t border-border-subtle w-full">
+          <div className="mt-10 pt-6 border-t border-border-subtle w-full flex flex-col gap-1.5 items-center">
             <p className="text-[10px] text-text-muted uppercase tracking-widest">
-              Build {new Date().toISOString().split('T')[0].replace(/-/g, '')} • Linux
+              Build {getBuildId()} • Linux
+            </p>
+            <p className="text-[10px] text-text-muted uppercase tracking-widest">
+              8,267 Lines of code!
             </p>
           </div>
         </div>

@@ -38,11 +38,15 @@ export interface ScanResult {
 
 export type AccentPreset =
   | "modrinth"
-  | "electric-blue"
+  | "sapphire"
   | "violet"
   | "rose"
   | "amber"
-  | "cyan";
+  | "cyan"
+  | "orange"
+  | "fuchsia"
+  | "emerald"
+  | "indigo";
 
 export interface AppSettings {
   accentColor: AccentPreset;
@@ -73,4 +77,21 @@ export interface Notification {
   type: "info" | "success" | "error";
   loading?: boolean;
   progress?: number;
+}
+
+export interface Shortcut {
+  key: string;
+  ctrl: boolean;
+  shift: boolean;
+  alt: boolean;
+}
+
+export interface ShortcutMap {
+  togglePlay: Shortcut;
+  skipForward: Shortcut;
+  skipBackward: Shortcut;
+  playNext: Shortcut;
+  playPrev: Shortcut;
+  volumeUp: Shortcut;
+  volumeDown: Shortcut;
 }

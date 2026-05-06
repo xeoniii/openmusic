@@ -1,7 +1,7 @@
 {
   "name": "open-music",
   "private": true,
-  "version": "0.6.4",
+  "version": "0.6.5",
   "license": "GPL-3.0-only",
   "author": "xeoniii (https://github.com/xeoniii)",
   "repository": {
@@ -23,6 +23,7 @@
     "@tauri-apps/api": "^2.10.1",
     "@tauri-apps/plugin-dialog": "^2.0.0",
     "@tauri-apps/plugin-fs": "^2.5.0",
+    "@tauri-apps/plugin-notification": "^2.3.3",
     "@tauri-apps/plugin-shell": "^2.3.5",
     "@types/react-window": "^1.8.8",
     "clsx": "^2.1.0",

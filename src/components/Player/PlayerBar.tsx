@@ -2,6 +2,7 @@ import React, { useCallback } from "react";
 import {
   Play, Pause, SkipBack, SkipForward, Repeat, Repeat1,
   Shuffle, Volume2, VolumeX, Volume1,
+  RotateCcw, RotateCw,
 } from "lucide-react";
 import { useStore } from "../../store";
 import { useShallow } from "zustand/react/shallow";
@@ -38,6 +39,8 @@ export function PlayerBar() {
     toggleShuffle,
     playNext,
     playPrev,
+    skipForward,
+    skipBackward,
     toggleMute,
   } = useStore(useShallow((s) => ({
     currentTrack: s.currentTrack,
@@ -53,6 +56,8 @@ export function PlayerBar() {
     toggleShuffle: s.toggleShuffle,
     playNext: s.playNext,
     playPrev: s.playPrev,
+    skipForward: s.skipForward,
+    skipBackward: s.skipBackward,
     toggleMute: s.toggleMute,
   })));
 
@@ -126,11 +131,21 @@ export function PlayerBar() {
             <SkipBack size={18} />
           </button>
 
+          {/* Skip Backward 5s */}
+          <button
+            onClick={skipBackward}
+            disabled={!currentTrack}
+            className="btn-icon disabled:opacity-30 p-0.5"
+            title="Rewind 5s"
+          >
+            <RotateCcw size={16} />
+          </button>
+
           {/* Play / Pause — primary button */}
           <button
             onClick={togglePlay}
             disabled={!currentTrack}
-            className="w-9 h-9 rounded-full bg-accent flex items-center justify-center flex-shrink-0 disabled:opacity-30 hover:scale-105 active:scale-95 transition-transform"
+            className="w-9 h-9 rounded-full bg-accent flex items-center justify-center flex-shrink-0 disabled:opacity-30 hover:scale-105 active:scale-95 transition-transform mx-1"
             style={{ boxShadow: currentTrack ? "0 0 16px var(--accent-glow)" : undefined }}
           >
             {isPlaying ? (
@@ -138,6 +153,16 @@ export function PlayerBar() {
             ) : (
               <Play size={17} fill="#000" color="#000" style={{ marginLeft: 2 }} />
             )}
+          </button>
+
+          {/* Skip Forward 5s */}
+          <button
+            onClick={skipForward}
+            disabled={!currentTrack}
+            className="btn-icon disabled:opacity-30 p-0.5"
+            title="Skip 5s"
+          >
+            <RotateCw size={16} />
           </button>
 
           {/* Next */}

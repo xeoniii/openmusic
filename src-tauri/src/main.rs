@@ -37,7 +37,7 @@ use std::sync::Mutex;
 use std::time::{SystemTime, UNIX_EPOCH};
 use tauri::menu::{Menu, MenuItem};
 use tauri::tray::{MouseButton, TrayIconBuilder, TrayIconEvent};
-use tauri::Manager;
+use tauri::{Emitter, Manager};
 use tiny_http::{Header, Response, Server};
 use url::Url;
 use walkdir::WalkDir;
@@ -1225,6 +1225,9 @@ fn handle_request(request: tiny_http::Request) {
         .find(|(k, _)| k == "size")
         .and_then(|(_, v)| v.parse::<u32>().ok())
         .unwrap_or(256);
+    
+    let is_lowend = query.contains("lowend=1");
+    let requested_size = if is_lowend { (requested_size as f32 * 0.75) as u32 } else { requested_size };
 
     let decoded_path = percent_decode_str(path_query)
         .decode_utf8_lossy()
@@ -1475,6 +1478,53 @@ async fn fetch_image_as_base64(url: String) -> Result<String, String> {
     Ok(format!("data:{};base64,{}", content_type, b64))
 }
 
+#[tauri::command]
+fn minimize_window(window: tauri::Window) -> Result<(), String> {
+    window.minimize().map_err(|e| e.to_string())
+}
+
+#[tauri::command]
+fn toggle_maximize_window(window: tauri::Window) -> Result<(), String> {
+    if window.is_maximized().unwrap_or(false) {
+        window.unmaximize().map_err(|e| e.to_string())
+    } else {
+        window.maximize().map_err(|e| e.to_string())
+    }
+}
+
+#[tauri::command]
+fn close_window(window: tauri::Window) -> Result<(), String> {
+    window.close().map_err(|e| e.to_string())
+}
+
+#[tauri::command]
+fn is_window_maximized(window: tauri::Window) -> Result<bool, String> {
+    Ok(window.is_maximized().unwrap_or(false))
+}
+
+#[tauri::command]
+fn set_window_decorations(window: tauri::Window, decorations: bool) -> Result<(), String> {
+    window.set_decorations(decorations).map_err(|e| e.to_string())
+}
+
+#[tauri::command]
+fn start_window_drag(window: tauri::Window) -> Result<(), String> {
+    window.start_dragging().map_err(|e| e.to_string())
+}
+
+#[tauri::command]
+fn clear_image_cache() -> Result<(), String> {
+    if let Ok(lock) = COVERS_CACHE_DIR.lock() {
+        if let Some(dir) = &*lock {
+            if dir.exists() {
+                let _ = fs::remove_dir_all(dir);
+                let _ = fs::create_dir_all(dir);
+            }
+        }
+    }
+    Ok(())
+}
+
 fn main() {
     #[cfg(target_os = "linux")]
     {
@@ -1489,6 +1539,7 @@ fn main() {
         .plugin(tauri_plugin_localhost::Builder::new(1421).build())
         .plugin(tauri_plugin_dialog::init())
         .plugin(tauri_plugin_fs::init())
+        .plugin(tauri_plugin_notification::init())
         .plugin(tauri_plugin_single_instance::init(|app, _args, _cwd| {
             if let Some(window) = app.get_webview_window("main") {
                 let _ = window.show();
@@ -1575,16 +1626,34 @@ fn main() {
             delete_track,
             fetch_lyrics,
             fetch_image_as_base64,
+            minimize_window,
+            toggle_maximize_window,
+            close_window,
+            is_window_maximized,
+            set_window_decorations,
+            start_window_drag,
+            clear_image_cache,
         ])
         .on_window_event(|window, event| {
-            if let tauri::WindowEvent::CloseRequested { api, .. } = event {
-                let app_state = window.state::<AppState>();
-                if app_state.tray_enabled.load(Ordering::Relaxed) {
-                    api.prevent_close();
-                    let _ = window.hide();
+            match event {
+                tauri::WindowEvent::Resized(_) 
+                | tauri::WindowEvent::Moved(_) 
+                | tauri::WindowEvent::Focused(_) 
+                | tauri::WindowEvent::ScaleFactorChanged { .. } => {
+                    // Emit a custom event when window state might have changed
+                    let is_full = window.is_fullscreen().unwrap_or(false);
+                    let _ = window.emit("fullscreen-changed", is_full);
                 }
+                tauri::WindowEvent::CloseRequested { api, .. } => {
+                    let app_state = window.state::<AppState>();
+                    if app_state.tray_enabled.load(Ordering::Relaxed) {
+                        api.prevent_close();
+                        let _ = window.hide();
+                    }
+                }
+                _ => {}
             }
         })
         .run(tauri::generate_context!())
-        .expect("error while running OpenMusic v0.6.4");
+        .expect(&format!("error while running OpenMusic v{}", env!("CARGO_PKG_VERSION")));
 }

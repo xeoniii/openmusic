@@ -16,6 +16,7 @@ import {
   deletePlaylist,
   pickDirectory,
   importPlaylist as importPlaylistApi,
+  importFiles,
 } from "../utils/tauriApi";
 import { open } from "@tauri-apps/plugin-dialog";
 import type { Playlist } from "../types";
@@ -58,7 +59,7 @@ export function useLibrary() {
       console.error("Library init error:", err);
       setScanning(false);
     }
-  }, [musicDir, playlistsDir]);
+  }, [musicDir, playlistsDir, setScanning, setTracks, setPlaylists]);
 
   const changeMusicDirectory = useCallback(async () => {
     const dir = await pickDirectory();
@@ -73,7 +74,7 @@ export function useLibrary() {
     } finally {
       setScanning(false);
     }
-  }, []);
+  }, [setMusicDir, setScanning, setTracks]);
 
   const changePlaylistsDirectory = useCallback(async () => {
     const dir = await pickDirectory();
@@ -85,7 +86,7 @@ export function useLibrary() {
     } catch (err) {
       console.error("Load playlists error:", err);
     }
-  }, []);
+  }, [setPlaylistsDir, setPlaylists]);
 
   const rescanDirectory = useCallback(async () => {
     if (!musicDir) return;
@@ -98,7 +99,17 @@ export function useLibrary() {
     } finally {
       setScanning(false);
     }
-  }, [musicDir]);
+  }, [musicDir, setScanning, setTracks]);
+
+  const refreshPlaylists = useCallback(async () => {
+    if (!playlistsDir) return;
+    try {
+      const pls = await listPlaylists(playlistsDir);
+      setPlaylists(pls);
+    } catch (err) {
+      console.error("Refresh playlists error:", err);
+    }
+  }, [playlistsDir, setPlaylists]);
 
   // ── Playlist CRUD ────────────────────────────────────────────────────────────
   const createNewPlaylist = useCallback(
@@ -113,7 +124,7 @@ export function useLibrary() {
         return null;
       }
     },
-    [playlistsDir]
+    [playlistsDir, addPlaylist]
   );
 
   const updatePlaylistData = useCallback(async (pl: Playlist) => {
@@ -123,7 +134,7 @@ export function useLibrary() {
     } catch (err) {
       console.error("Save playlist error:", err);
     }
-  }, []);
+  }, [updatePlaylist]);
 
   const removePlaylistData = useCallback(async (pl: Playlist) => {
     try {
@@ -132,7 +143,7 @@ export function useLibrary() {
     } catch (err) {
       console.error("Delete playlist error:", err);
     }
-  }, []);
+  }, [removePlaylist]);
 
   const removeTrackFromPlaylist = useCallback(
     async (playlist: Playlist, trackId: string) => {
@@ -161,9 +172,29 @@ export function useLibrary() {
     }
   }, [playlistsDir, addPlaylist]);
 
+  const importSongs = useCallback(async () => {
+    if (!musicDir) return;
+    try {
+      const selected = await open({
+        multiple: true,
+        filters: [{ name: 'Music', extensions: ['mp3', 'flac', 'ogg', 'wav', 'm4a', 'aac', 'opus', 'wma', 'aiff'] }]
+      });
+
+      if (selected && Array.isArray(selected) && selected.length > 0) {
+        const count = await importFiles(selected, musicDir);
+        if (count > 0) {
+          rescanDirectory();
+        }
+      }
+    } catch (err) {
+      console.error("Import error:", err);
+    }
+  }, [musicDir, rescanDirectory]);
+
   return {
     initialize,
     rescanDirectory,
+    refreshPlaylists,
     changeMusicDirectory,
     changePlaylistsDirectory,
     createNewPlaylist,
@@ -171,5 +202,6 @@ export function useLibrary() {
     removePlaylistData,
     removeTrackFromPlaylist,
     importPlaylist,
+    importSongs,
   };
 }

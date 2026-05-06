@@ -31,11 +31,15 @@ export function stringToColor(str: string): string {
 
 export const ACCENT_PRESETS = [
   { id: "modrinth",       label: "Mint Green",  hex: "#1bd96a" },
-  { id: "electric-blue",  label: "Electric Blue", hex: "#3b82f6" },
+  { id: "sapphire",       label: "Sapphire",    hex: "#2563eb" },
   { id: "violet",        label: "Violet",     hex: "#8b5cf6" },
   { id: "rose",          label: "Rose",       hex: "#f43f5e" },
   { id: "amber",          label: "Amber",      hex: "#f59e0b" },
   { id: "cyan",          label: "Cyan",      hex: "#06b6d4" },
+  { id: "orange",        label: "Orange",    hex: "#f97316" },
+  { id: "fuchsia",       label: "Fuchsia",   hex: "#d946ef" },
+  { id: "emerald",       label: "Emerald",   hex: "#10b981" },
+  { id: "indigo",        label: "Indigo",    hex: "#6366f1" },
 ];
 
 export function pluralize(count: number, word: string): string {
