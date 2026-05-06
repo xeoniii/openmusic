@@ -241,7 +241,7 @@ fn stem_from_path(path: &Path) -> String {
 #[tauri::command]
 fn get_app_paths(app_handle: tauri::AppHandle) -> Result<AppPaths, String> {
     let music_home = app_handle.path().audio_dir().map_err(|e| e.to_string())?;
-    let base = music_home.join("OpenMusic");
+    let base = music_home.join("Mewsic");
 
     let music_dir = base.join("Music");
     let playlists_dir = base.join("Playlists");
@@ -583,13 +583,13 @@ async fn search_itunes(app_handle: tauri::AppHandle, query: String) -> Result<Ve
 }
 
 async fn get_yt_dlp_path(app_handle: &tauri::AppHandle) -> PathBuf {
-    let app_dir = app_handle.path().data_dir().unwrap_or_default().join("OpenMusic");
+    let app_dir = app_handle.path().data_dir().unwrap_or_default().join("Mewsic");
     let bin_name = if cfg!(windows) { "yt-dlp.exe" } else { "yt-dlp" };
     app_dir.join(bin_name)
 }
 
 async fn get_ffmpeg_path(app_handle: &tauri::AppHandle) -> PathBuf {
-    let app_dir = app_handle.path().data_dir().unwrap_or_default().join("OpenMusic");
+    let app_dir = app_handle.path().data_dir().unwrap_or_default().join("Mewsic");
     let bin_name = if cfg!(windows) { "ffmpeg.exe" } else { "ffmpeg" };
     app_dir.join(bin_name)
 }
@@ -1132,8 +1132,8 @@ fn update_discord_rpc(
                     .small_text(&small_text_str),
             )
             .buttons(vec![activity::Button::new(
-                "Download OpenMusic",
-                "https://xeoniii.github.io/openmusic",
+                "Download Mewsic",
+                "https://xeoniii.github.io/Mewsic",
             )]);
 
         if is_playing {
@@ -1435,7 +1435,7 @@ async fn fetch_lyrics(query: String) -> Result<Option<String>, String> {
     let client = reqwest::Client::new();
     let resp = client
         .get(url)
-        .header("User-Agent", "OpenMusic/0.6.4 (https://github.com/xeoniii/openmusic)")
+        .header("User-Agent", "Mewsic/0.6.4 (https://github.com/xeoniii/Mewsic)")
         .send()
         .await
         .map_err(|e| e.to_string())?;
@@ -1563,12 +1563,12 @@ fn main() {
 
             let quit_i = MenuItem::with_id(app, "quit", "Quit", true, None::<&str>).unwrap();
             let show_i =
-                MenuItem::with_id(app, "show", "Show OpenMusic", true, None::<&str>).unwrap();
+                MenuItem::with_id(app, "show", "Show Mewsic", true, None::<&str>).unwrap();
             let menu = Menu::with_items(app, &[&show_i, &quit_i]).unwrap();
             let icon = app.default_window_icon().unwrap().clone();
 
             let tray = TrayIconBuilder::with_id("main_tray")
-                .icon(icon)
+                .icon(icon.clone())
                 .menu(&menu)
                 .show_menu_on_left_click(false)
                 .on_menu_event(|app, event| {
@@ -1596,6 +1596,12 @@ fn main() {
                 .unwrap();
 
             let _ = tray.set_visible(true); // default to true
+
+            // Force the window icon for the main window (helps with dock icons on some Linux DEs)
+            if let Some(window) = app.get_webview_window("main") {
+                let _ = window.set_icon(icon);
+            }
+
             Ok(())
         })
         .invoke_handler(tauri::generate_handler![
@@ -1655,5 +1661,5 @@ fn main() {
             }
         })
         .run(tauri::generate_context!())
-        .expect(&format!("error while running OpenMusic v{}", env!("CARGO_PKG_VERSION")));
+        .expect(&format!("error while running Mewsic v{}", env!("CARGO_PKG_VERSION")));
 }

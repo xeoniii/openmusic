@@ -1,10 +1,10 @@
 [package]
-name = "openmusic"
-version = "0.6.5"
-description = "OpenMusic — A modern offline music player"
+name = "mewsic"
+version = "0.6.6"
+description = "Mewsic — A modern offline music player"
 authors = ["xeoniii <https://github.com/xeoniii>"]
 license = "GPL-3.0-only"
-repository = "https://github.com/xeoniii/openmusic"
+repository = "https://github.com/xeoniii/Mewsic"
 edition = "2021"
 rust-version = "1.70"
 

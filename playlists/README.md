@@ -10,4 +10,4 @@ Folder structure example:
     └── Late Night/
         └── playlist.json
 
-Do not edit `playlist.json` by hand — use the OpenMusic UI.
+Do not edit `playlist.json` by hand — use the Mewsic UI.

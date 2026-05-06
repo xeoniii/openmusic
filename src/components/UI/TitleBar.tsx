@@ -53,7 +53,7 @@ export function TitleBar() {
           <div className="w-1.5 h-1.5 rounded-full bg-accent" />
         </div>
         <span className="text-[10px] font-bold uppercase tracking-[0.2em] text-text-muted">
-          OpenMusic
+          Mewsic
         </span>
       </div>
 

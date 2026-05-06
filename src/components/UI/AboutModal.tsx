@@ -6,7 +6,7 @@ import { useStore } from "../../store";
 
 export function AboutModal() {
   const { setShowAbout } = useStore();
-  const [appVersion, setAppVersion] = useState<string>("0.6.5");
+  const [appVersion, setAppVersion] = useState<string>("0.6.6");
 
   useEffect(() => {
     getVersion().then(setAppVersion).catch(() => {});
@@ -62,7 +62,7 @@ export function AboutModal() {
           </div>
 
           <h3 className="text-3xl font-display font-black text-text-primary mb-2 tracking-tighter">
-            Open<span className="text-accent">Music</span>
+            Mew<span className="text-accent">sic</span>
           </h3>
           <p className="text-xs font-bold text-accent uppercase tracking-[0.2em] mb-6 opacity-80">
             Version {appVersion}
@@ -87,7 +87,7 @@ export function AboutModal() {
                   <Globe size={18} />
                 </button>
                 <button 
-                  onClick={() => handleOpenLink("https://github.com/xeoniii")} 
+                  onClick={() => handleOpenLink("https://github.com/xeoniii/Mewsic")} 
                   className="p-2 rounded-xl bg-surface-overlay hover:bg-accent-muted hover:text-accent transition-all"
                   title="GitHub"
                 >

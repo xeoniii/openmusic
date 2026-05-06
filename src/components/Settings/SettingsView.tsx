@@ -110,7 +110,7 @@ export function SettingsView() {
   const [clearingDiscord, setClearingDiscord] = useState(false);
   const [showFlashbangWarning, setShowFlashbangWarning] = useState(false);
   const [showRestartModal, setShowRestartModal] = useState(false);
-  const [appVersion, setAppVersion] = useState<string>("0.6.5");
+  const [appVersion, setAppVersion] = useState<string>("0.6.6");
   const [localGuiScale, setLocalGuiScale] = useState(guiScale);
 
   useEffect(() => {
@@ -175,7 +175,7 @@ export function SettingsView() {
       <div className="px-8 py-6 border-b border-border-subtle flex-shrink-0">
         <h1 className="font-display font-bold text-2xl text-text-primary">Settings</h1>
         <p className="text-text-muted text-sm mt-1">
-          Customize OpenMusic to your taste
+          Customize Mewsic to your taste
         </p>
       </div>
 
@@ -489,7 +489,7 @@ export function SettingsView() {
 
               <div className="p-3 rounded-lg bg-accent-muted/20 border border-accent/10">
                 <p className="text-[10px] text-text-secondary leading-relaxed italic">
-                  When enabled, OpenMusic updates your Discord status with track details and progress.
+                  When enabled, Mewsic updates your Discord status with track details and progress.
                 </p>
               </div>
             </div>
@@ -514,7 +514,7 @@ export function SettingsView() {
 
         {/* Original Footer */}
         <div className="py-12 text-center">
-          <p className="font-display font-black text-sm text-text-primary tracking-tight">OpenMusic <span className="text-accent">v{appVersion}</span></p>
+          <p className="font-display font-black text-sm text-text-primary tracking-tight">Mewsic <span className="text-accent">v{appVersion}</span></p>
           <p className="text-[10px] text-text-muted mt-1 uppercase tracking-widest font-bold">Crafted with love for high-quality audio.</p>
           <p className="text-[10px] text-text-muted mt-0.5 uppercase tracking-widest font-bold">Made by xeoniii.dev</p>
           <p className="text-[9px] text-text-muted/40 font-mono mt-4 uppercase tracking-[0.2em]">Build: {getBuildId()} • Linux</p>

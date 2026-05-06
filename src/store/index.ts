@@ -498,7 +498,7 @@ export const useStore = create<Store>()(
         })),
     }),
     {
-      name: "openmusic-storage",
+      name: "mewsic-storage",
       // Only persist settings & library dirs, not the full track list
       partialize: (s) => ({
         accentColor: s.accentColor,

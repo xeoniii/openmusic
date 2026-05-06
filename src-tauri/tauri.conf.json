@@ -1,8 +1,8 @@
 {
   "$schema": "../node_modules/@tauri-apps/cli/schema.json",
-  "productName": "OpenMusic",
-  "version": "0.6.5",
-  "identifier": "dev.xeoniii.openmusic",
+  "productName": "Mewsic",
+  "version": "0.6.6",
+  "identifier": "dev.xeoniii.mewsic",
   "build": {
     "beforeDevCommand": "npm run dev",
     "beforeBuildCommand": "npm run build",
@@ -45,7 +45,7 @@
       {
         "fullscreen": false,
         "resizable": true,
-        "title": "OpenMusic",
+        "title": "Mewsic",
         "width": 1280,
         "height": 800,
         "minWidth": 900,

@@ -113,7 +113,7 @@ export function useAudioPlayer() {
         return;
       }
 
-      let playlistName = "OpenMusic";
+      let playlistName = "Mewsic";
       if (state.activePlaylistId) {
         const pl = state.playlists.find(p => p.id === state.activePlaylistId);
         if (pl) playlistName = pl.name;
@@ -246,7 +246,7 @@ export function useAudioPlayer() {
     const state = useStore.getState();
     const track = state.currentTrack;
     if (track && state.discordEnabled) {
-      let playlistName = "OpenMusic";
+      let playlistName = "Mewsic";
       if (state.activePlaylistId) {
         const pl = state.playlists.find(p => p.id === state.activePlaylistId);
         if (pl) playlistName = pl.name;

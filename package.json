@@ -1,12 +1,12 @@
 {
-  "name": "open-music",
+  "name": "mewsic",
   "private": true,
-  "version": "0.6.5",
+  "version": "0.6.6",
   "license": "GPL-3.0-only",
   "author": "xeoniii (https://github.com/xeoniii)",
   "repository": {
     "type": "git",
-    "url": "https://github.com/xeoniii/openmusic"
+    "url": "https://github.com/xeoniii/Mewsic"
   },
   "type": "module",
   "scripts": {

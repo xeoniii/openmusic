@@ -43,8 +43,8 @@ jobs:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         with:
           tagName: v__VERSION__ # tauri-action replaces this with the version from tauri.conf.json
-          releaseName: "OpenMusic v__VERSION__"
-          releaseBody: "Automated release for open-music. Available for Windows, Linux and MacOS. Please note that there can be some bugs since this is an Alpha release."
+          releaseName: "Mewsic v__VERSION__"
+          releaseBody: "Automated release for Mewsic. Available for Windows, Linux and MacOS. Please note that there can be some bugs since this is an Alpha release."
           releaseDraft: true
           prerelease: false
           args: ${{ matrix.platform == 'windows-latest' && '--target x86_64-pc-windows-msvc' || '' }}

@@ -2647,6 +2647,37 @@ dependencies = [
 ]
 
 [[package]]
+name = "mewsic"
+version = "0.6.6"
+dependencies = [
+ "base64 0.21.7",
+ "discord-rich-presence",
+ "image",
+ "lofty",
+ "percent-encoding",
+ "raw-window-handle",
+ "rayon",
+ "regex",
+ "reqwest 0.11.27",
+ "rustc-hash 1.1.0",
+ "serde",
+ "serde_json",
+ "souvlaki",
+ "tauri",
+ "tauri-build",
+ "tauri-plugin-dialog",
+ "tauri-plugin-fs",
+ "tauri-plugin-localhost",
+ "tauri-plugin-notification",
+ "tauri-plugin-shell",
+ "tauri-plugin-single-instance",
+ "tiny_http",
+ "url",
+ "urlencoding",
+ "walkdir",
+]
+
+[[package]]
 name = "mime"
 version = "0.3.17"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -2974,37 +3005,6 @@ dependencies = [
  "is-wsl",
  "libc",
  "pathdiff",
-]
-
-[[package]]
-name = "openmusic"
-version = "0.6.5"
-dependencies = [
- "base64 0.21.7",
- "discord-rich-presence",
- "image",
- "lofty",
- "percent-encoding",
- "raw-window-handle",
- "rayon",
- "regex",
- "reqwest 0.11.27",
- "rustc-hash 1.1.0",
- "serde",
- "serde_json",
- "souvlaki",
- "tauri",
- "tauri-build",
- "tauri-plugin-dialog",
- "tauri-plugin-fs",
- "tauri-plugin-localhost",
- "tauri-plugin-notification",
- "tauri-plugin-shell",
- "tauri-plugin-single-instance",
- "tiny_http",
- "url",
- "urlencoding",
- "walkdir",
 ]
 
 [[package]]

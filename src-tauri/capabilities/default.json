@@ -1,6 +1,6 @@
 {
   "identifier": "default",
-  "description": "Default capabilities for OpenMusic",
+  "description": "Default capabilities for Mewsic",
   "windows": [
     "main"
   ],

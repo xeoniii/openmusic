@@ -84,8 +84,8 @@ impl MediaManagerState {
             };
 
             let config = PlatformConfig {
-                dbus_name: "openmusic",
-                display_name: "OpenMusic",
+                dbus_name: "mewsic",
+                display_name: "Mewsic",
                 hwnd,
             };
 

@@ -304,7 +304,7 @@ export function ContextMenu() {
 
         <ContextMenuItem 
           icon={<Info size={16} />} 
-          label="About OpenMusic" 
+          label="About Mewsic" 
           onClick={() => {
             setVisible(false);
             setShowAbout(true);

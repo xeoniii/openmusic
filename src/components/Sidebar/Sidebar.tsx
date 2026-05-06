@@ -84,7 +84,7 @@ export function Sidebar() {
           className="font-display font-bold text-lg tracking-tight"
           style={{ color: "var(--text-primary)" }}
         >
-          Open<span className="text-accent">Music</span>
+          Mewsic
         </span>
       </div>
 
