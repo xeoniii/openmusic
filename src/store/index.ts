@@ -99,7 +99,6 @@ interface UISlice {
   systemNotifications: boolean;
   lowEndMode: boolean;
   shortcuts: ShortcutMap;
-  deleteTrack: Track | null;
   showImportPlaylist: boolean;
   showCreatePlaylist: boolean;
   showCyberdeck: boolean;

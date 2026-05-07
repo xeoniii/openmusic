@@ -49,7 +49,7 @@ export default function App() {
     setFullscreen, isFullscreen, lowEndMode,
     showImportPlaylist, setShowImportPlaylist,
     showCreatePlaylist, setShowCreatePlaylist,
-    showCyberdeck, setShowCyberdeck
+    showCyberdeck, setShowCyberdeck, setShowAbout
   } = useStore(useShallow((s) => ({
     activeView: s.activeView,
     accentColor: s.accentColor,
