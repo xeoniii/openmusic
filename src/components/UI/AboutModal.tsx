@@ -6,7 +6,7 @@ import { useStore } from "../../store";
 
 export function AboutModal() {
   const { setShowAbout } = useStore();
-  const [appVersion, setAppVersion] = useState<string>("0.6.6");
+  const [appVersion, setAppVersion] = useState<string>("0.6.9");
 
   useEffect(() => {
     getVersion().then(setAppVersion).catch(() => {});
@@ -65,7 +65,7 @@ export function AboutModal() {
             Mew<span className="text-accent">sic</span>
           </h3>
           <p className="text-xs font-bold text-accent uppercase tracking-[0.2em] mb-6 opacity-80">
-            Version {appVersion}
+            Version {appVersion} (nice)
           </p>
 
           <div className="space-y-4 text-text-secondary leading-relaxed text-sm">
@@ -102,7 +102,7 @@ export function AboutModal() {
               Build {getBuildId()} • Linux
             </p>
             <p className="text-[10px] text-text-muted uppercase tracking-widest">
-              8,267 Lines of code!
+              9,500 Lines of code!
             </p>
           </div>
         </div>

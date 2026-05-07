@@ -3,7 +3,7 @@ import { Play, Music2, Disc3, Clock, FolderOpen, Shuffle, ChevronRight } from "l
 import { useStore } from "../../store";
 import { useShallow } from "zustand/react/shallow";
 import { MusicCard } from "./MusicCard";
-import { formatDuration, pluralize, shuffleArray } from "../../utils/helpers";
+import { formatDuration, formatPreciseDuration, pluralize, shuffleArray } from "../../utils/helpers";
 
 function StatCard({
   icon,
@@ -29,10 +29,11 @@ function StatCard({
   );
 }
 
+import { useDisplayData } from "../../hooks/useDisplayData";
+
 export function HomeView() {
-  const { tracks, isScanning, setQueue, setIsPlaying, shuffleEnabled, toggleShuffle } =
+  const { isScanning, setQueue, setIsPlaying, shuffleEnabled, toggleShuffle } =
     useStore(useShallow((s) => ({
-      tracks: s.tracks,
       isScanning: s.isScanning,
       setQueue: s.setQueue,
       setIsPlaying: s.setIsPlaying,
@@ -40,38 +41,40 @@ export function HomeView() {
       toggleShuffle: s.toggleShuffle,
     })));
 
+  const { displayTracks, demoTrackCount, demoPlaytime } = useDisplayData();
+
   const recentTracks = useMemo(() => {
-    return [...tracks]
+    return [...displayTracks]
       .sort((a, b) => b.dateAdded - a.dateAdded)
       .slice(0, 10);
-  }, [tracks]);
+  }, [displayTracks]);
 
   const totalDuration = useMemo(
-    () => tracks.reduce((acc, t) => acc + t.duration, 0),
-    [tracks]
+    () => displayTracks.reduce((acc, t) => acc + t.duration, 0),
+    [displayTracks]
   );
 
   const uniqueArtists = useMemo(
-    () => new Set(tracks.map((t) => t.artist)).size,
-    [tracks]
+    () => new Set(displayTracks.map((t) => t.artist)).size,
+    [displayTracks]
   );
 
   const uniqueAlbums = useMemo(
-    () => new Set(tracks.map((t) => t.album)).size,
-    [tracks]
+    () => new Set(displayTracks.map((t) => t.album)).size,
+    [displayTracks]
   );
 
   const handlePlayAll = () => {
-    if (!tracks.length) return;
-    setQueue(tracks, 0);
+    if (!displayTracks.length) return;
+    setQueue(displayTracks, 0);
     setIsPlaying(true);
   };
 
   const handleShuffleAll = useCallback(() => {
-    if (!tracks.length) return;
-    setQueue(shuffleArray(tracks), 0);
+    if (!displayTracks.length) return;
+    setQueue(shuffleArray(displayTracks), 0);
     setIsPlaying(true);
-  }, [tracks.length]);
+  }, [displayTracks.length]);
 
   if (isScanning) {
     return (
@@ -87,7 +90,7 @@ export function HomeView() {
     );
   }
 
-  if (!tracks.length) {
+  if (!displayTracks.length) {
     return (
       <div className="empty-state h-full">
         <div
@@ -149,7 +152,7 @@ export function HomeView() {
                 Welcome back
               </p>
               <h1 className="font-display font-black text-4xl text-text-primary leading-tight tracking-tight">
-                {pluralize(tracks.length, "Track")} in your library
+                {pluralize(demoTrackCount, "Track")} in your library
               </h1>
               <div className="flex items-center gap-3 mt-3">
                 <span className="text-text-secondary text-sm font-medium">
@@ -157,7 +160,7 @@ export function HomeView() {
                 </span>
                 <span className="w-1 h-1 rounded-full bg-text-muted" />
                 <span className="text-text-secondary text-sm font-medium">
-                  {formatDuration(totalDuration)}
+                  {formatPreciseDuration(demoPlaytime)}
                 </span>
               </div>
             </div>
@@ -174,13 +177,13 @@ export function HomeView() {
 
         {/* ── Stats Row ──────────────────────────────────────────────────────── */}
         <div className="grid grid-cols-2 sm:grid-cols-4 gap-4">
-          <StatCard icon={<Music2 size={18} />} label="Total Tracks"  value={tracks.length} />
+          <StatCard icon={<Music2 size={18} />} label="Total Tracks"  value={demoTrackCount} />
           <StatCard icon={<Disc3 size={18} />}  label="Unique Artists" value={uniqueArtists} />
           <StatCard icon={<FolderOpen size={18} />} label="Total Albums" value={uniqueAlbums} />
           <StatCard
             icon={<Clock size={18} />}
             label="Playback Time"
-            value={formatDuration(totalDuration).split(':')[0] + 'h'}
+            value={formatPreciseDuration(demoPlaytime)}
           />
         </div>
       </div>

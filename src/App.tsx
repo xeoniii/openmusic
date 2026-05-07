@@ -20,13 +20,12 @@ import { ContextMenu } from "./components/UI/ContextMenu";
 import { AboutModal } from "./components/UI/AboutModal";
 import { EditMetadataModal } from "./components/Library/EditMetadataModal";
 import { AddToPlaylistModal } from "./components/Library/AddToPlaylistModal";
+import { ImportPlaylistModal } from "./components/Library/ImportPlaylistModal";
+import { CreatePlaylistModal } from "./components/Library/CreatePlaylistModal";
 import { ConfirmationModal } from "./components/UI/ConfirmationModal";
 import { deleteTrack } from "./utils/tauriApi";
 import { TitleBar } from "./components/UI/TitleBar";
-
-
-
-
+import { Cyberdeck } from "./components/UI/Cyberdeck";
 function ViewRouter() {
   const { activeView } = useStore();
 
@@ -47,7 +46,10 @@ export default function App() {
     setMusicDir, setPlaylistsDir, setCoversDir, guiScale, showAbout,
     editTrack, addTrack, deleteTrackRequest, setEditTrack, setAddTrack,
     setDeleteTrack, removeTrack, addNotification, customTitlebar,
-    setFullscreen, isFullscreen, lowEndMode
+    setFullscreen, isFullscreen, lowEndMode,
+    showImportPlaylist, setShowImportPlaylist,
+    showCreatePlaylist, setShowCreatePlaylist,
+    showCyberdeck, setShowCyberdeck
   } = useStore(useShallow((s) => ({
     activeView: s.activeView,
     accentColor: s.accentColor,
@@ -73,6 +75,13 @@ export default function App() {
     isFullscreen: s.isFullscreen,
     lowEndMode: s.lowEndMode,
     shortcuts: s.shortcuts,
+    showImportPlaylist: s.showImportPlaylist,
+    setShowImportPlaylist: s.setShowImportPlaylist,
+    showCreatePlaylist: s.showCreatePlaylist,
+    setShowCreatePlaylist: s.setShowCreatePlaylist,
+    showCyberdeck: s.showCyberdeck,
+    setShowCyberdeck: s.setShowCyberdeck,
+    setShowAbout: s.setShowAbout,
   })));
 
 
@@ -214,19 +223,31 @@ export default function App() {
         setVolume(Math.max(volume - 0.02, 0));
       }
     };
-    const onF11 = (e: KeyboardEvent) => {
+    const onGlobalShortcuts = (e: KeyboardEvent) => {
       if (e.key === "F11") {
         e.preventDefault();
         toggleFullscreen().catch(() => {});
+      } else if (e.ctrlKey && e.shiftKey && e.code === "Backquote") {
+        e.preventDefault();
+        setShowCyberdeck(!showCyberdeck);
+      } else if (e.key === "Escape") {
+        // Close any open modals
+        if (showAbout) setShowAbout(false);
+        if (editTrack) setEditTrack(null);
+        if (addTrack) setAddTrack(null);
+        if (deleteTrackRequest) setDeleteTrack(null);
+        if (showImportPlaylist) setShowImportPlaylist(false);
+        if (showCreatePlaylist) setShowCreatePlaylist(false);
+        if (showCyberdeck) setShowCyberdeck(false);
       }
     };
     window.addEventListener("keydown", onKey);
-    window.addEventListener("keydown", onF11);
+    window.addEventListener("keydown", onGlobalShortcuts);
     return () => {
       window.removeEventListener("keydown", onKey);
-      window.removeEventListener("keydown", onF11);
+      window.removeEventListener("keydown", onGlobalShortcuts);
     };
-  }, []);
+  }, [showAbout, editTrack, addTrack, deleteTrackRequest, showImportPlaylist, showCreatePlaylist, showCyberdeck]);
 
   const handleDeleteConfirm = async () => {
     if (!deleteTrackRequest) return;
@@ -240,12 +261,6 @@ export default function App() {
       setDeleteTrack(null);
     }
   };
-
-
-
-
-
-
   const showPlayerBar = activeView !== "player";
 
   return (
@@ -305,6 +320,22 @@ export default function App() {
           onConfirm={handleDeleteConfirm}
           onCancel={() => setDeleteTrack(null)}
         />
+      )}
+      
+      {showImportPlaylist && (
+        <ImportPlaylistModal 
+          onClose={() => setShowImportPlaylist(false)} 
+        />
+      )}
+
+      {showCreatePlaylist && (
+        <CreatePlaylistModal 
+          onClose={() => setShowCreatePlaylist(false)} 
+        />
+      )}
+
+      {showCyberdeck && (
+        <Cyberdeck onClose={() => setShowCyberdeck(false)} />
       )}
     </div>
   );

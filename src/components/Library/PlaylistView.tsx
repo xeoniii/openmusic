@@ -1,6 +1,6 @@
 import React, { useMemo, useState, useCallback } from "react";
 import {
-  Play, Shuffle, Trash2, Music2, ListMusic, MinusCircle, PlusCircle,
+  Play, Shuffle, Trash2, Music2, ListMusic, MinusCircle, PlusCircle, Pencil, Share2, Download,
 } from "lucide-react";
 import {
   DndContext,
@@ -25,30 +25,40 @@ import { useLibrary } from "../../hooks/useLibrary";
 import { formatDuration, pluralize, shuffleArray } from "../../utils/helpers";
 import { AddToPlaylistModal } from "./AddToPlaylistModal";
 import { ManagePlaylistTracksModal } from "./ManagePlaylistTracksModal";
+import { EditPlaylistModal } from "./EditPlaylistModal";
+import { SharePlaylistModal } from "./SharePlaylistModal";
 import type { Track } from "../../types";
+
+import { useDisplayData } from "../../hooks/useDisplayData";
 
 export function PlaylistView() {
   const {
     activePlaylistId,
-    playlists,
-    tracks,
     setQueue,
     setIsPlaying,
     setActiveView,
     setAddTrack,
-  } = useStore(useShallow((s) => ({
-    activePlaylistId: s.activePlaylistId,
-    playlists: s.playlists,
-    tracks: s.tracks,
-    setQueue: s.setQueue,
-    setIsPlaying: s.setIsPlaying,
-    setActiveView: s.setActiveView,
-    setAddTrack: s.setAddTrack,
-  })));
+  } = useStore(
+    useShallow((s) => ({
+      activePlaylistId: s.activePlaylistId,
+      setQueue: s.setQueue,
+      setIsPlaying: s.setIsPlaying,
+      setActiveView: s.setActiveView,
+      setAddTrack: s.setAddTrack,
+    }))
+  );
 
-  const { removePlaylistData, removeTrackFromPlaylist, updatePlaylistData } = useLibrary();
+  const { displayPlaylists, displayTracks } = useDisplayData();
+  const { 
+    removePlaylistData, 
+    removeTrackFromPlaylist, 
+    updatePlaylistData, 
+    renamePlaylist 
+  } = useLibrary();
 
   const [showManageTracks, setShowManageTracks] = useState(false);
+  const [showEditPlaylist, setShowEditPlaylist] = useState(false);
+  const [showSharePlaylist, setShowSharePlaylist] = useState(false);
 
   const sensors = useSensors(
     useSensor(PointerSensor, {
@@ -62,17 +72,17 @@ export function PlaylistView() {
   );
 
   const playlist = useMemo(
-    () => playlists.find((p) => p.id === activePlaylistId),
-    [playlists, activePlaylistId]
+    () => displayPlaylists.find((p) => p.id === activePlaylistId),
+    [displayPlaylists, activePlaylistId]
   );
 
   const playlistTracks = useMemo(() => {
     if (!playlist) return [];
-    const trackMap = new Map(tracks.map((t) => [t.id, t]));
+    const trackMap = new Map(displayTracks.map((t) => [t.id, t]));
     return (playlist.trackIds || [])
       .map((id) => trackMap.get(id))
-      .filter(Boolean) as typeof tracks;
-  }, [playlist, tracks]);
+      .filter(Boolean) as Track[];
+  }, [playlist, displayTracks]);
 
   const totalDuration = useMemo(
     () => playlistTracks.reduce((acc, t) => acc + t.duration, 0),
@@ -105,6 +115,10 @@ export function PlaylistView() {
     const plToDelete = playlist;
     setActiveView("library");
     await removePlaylistData(plToDelete);
+  };
+
+  const handleEdit = () => {
+    setShowEditPlaylist(true);
   };
 
   const handleDragEnd = async (event: DragEndEvent) => {
@@ -143,8 +157,12 @@ export function PlaylistView() {
 
         <div className="relative flex items-center gap-4">
           {/* Playlist icon */}
-          <div className="w-16 h-16 rounded-2xl bg-accent-muted flex items-center justify-center flex-shrink-0">
-            <ListMusic size={28} className="text-accent" />
+          <div className="w-16 h-16 rounded-2xl bg-accent-muted flex items-center justify-center flex-shrink-0 overflow-hidden border border-border-subtle">
+            {playlist.coverArt ? (
+              <img src={playlist.coverArt} alt="Playlist cover" className="w-full h-full object-cover" />
+            ) : (
+              <ListMusic size={28} className="text-accent" />
+            )}
           </div>
 
           <div className="flex-1 min-w-0">
@@ -185,6 +203,20 @@ export function PlaylistView() {
               title="Shuffle"
             >
               <Shuffle size={15} />
+            </button>
+            <button
+              onClick={handleEdit}
+              className="btn-icon"
+              title="Edit playlist"
+            >
+              <Pencil size={15} />
+            </button>
+            <button
+              onClick={() => setShowSharePlaylist(true)}
+              className="btn-icon"
+              title="Share playlist"
+            >
+              <Share2 size={15} />
             </button>
             <button
               onClick={handleDelete}
@@ -248,6 +280,18 @@ export function PlaylistView() {
         <ManagePlaylistTracksModal
           playlist={playlist}
           onClose={() => setShowManageTracks(false)}
+        />
+      )}
+      {showEditPlaylist && (
+        <EditPlaylistModal
+          playlist={playlist}
+          onClose={() => setShowEditPlaylist(false)}
+        />
+      )}
+      {showSharePlaylist && (
+        <SharePlaylistModal
+          playlist={playlist}
+          onClose={() => setShowSharePlaylist(false)}
         />
       )}
     </div>

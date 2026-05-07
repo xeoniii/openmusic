@@ -7,6 +7,15 @@ export function formatDuration(seconds: number): string {
   return `${m}:${s.toString().padStart(2, "0")}`;
 }
 
+export function formatPreciseDuration(seconds: number): string {
+  if (!seconds || isNaN(seconds) || !isFinite(seconds)) return "0m 00s";
+  const h = Math.floor(seconds / 3600);
+  const m = Math.floor((seconds % 3600) / 60);
+  const s = Math.floor(seconds % 60);
+  if (h > 0) return `${h}h ${m}m ${s}s`;
+  return `${m}m ${s}s`;
+}
+
 export function formatFileSize(bytes: number): string {
   if (bytes === 0) return "0 B";
   const k = 1024;
@@ -30,7 +39,7 @@ export function stringToColor(str: string): string {
 }
 
 export const ACCENT_PRESETS = [
-  { id: "modrinth",       label: "Mint Green",  hex: "#1bd96a" },
+  { id: "mint",           label: "Mint",        hex: "#1bd96a" },
   { id: "sapphire",       label: "Sapphire",    hex: "#2563eb" },
   { id: "violet",        label: "Violet",     hex: "#8b5cf6" },
   { id: "rose",          label: "Rose",       hex: "#f43f5e" },

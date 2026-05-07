@@ -36,7 +36,7 @@ export function ToastContainer() {
           )}>
             {n.progress !== undefined ? (
               <div className="relative w-8 h-8 flex items-center justify-center">
-                <svg className="w-8 h-8 -rotate-90">
+                <svg className="w-8 h-8 block -rotate-90" viewBox="0 0 32 32">
                   <circle
                     cx="16"
                     cy="16"
@@ -59,7 +59,7 @@ export function ToastContainer() {
                     className="transition-all duration-300 ease-out"
                   />
                 </svg>
-                <span className="absolute text-[8px] font-bold">{Math.round(n.progress)}%</span>
+                <span className="absolute inset-0 flex items-center justify-center text-[8px] font-bold leading-none">{Math.round(n.progress)}%</span>
               </div>
             ) : n.loading ? (
               <Loader2 size={18} className="animate-spin" />

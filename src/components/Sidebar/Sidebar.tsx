@@ -1,7 +1,7 @@
-import React, { useState } from "react";
+import React from "react";
 import {
-  Home, Library, Settings, Music2, Plus, Trash2,
-  ListMusic, ChevronRight, Loader2, PlayCircle, Globe,
+  Home, Library, Settings, Music2, Plus,
+  ListMusic, ChevronRight, Loader2, PlayCircle, Globe, Download
 } from "lucide-react";
 import { useStore } from "../../store";
 import { useShallow } from "zustand/react/shallow";
@@ -28,46 +28,40 @@ function NavItem({ icon, label, active, onClick }: NavItemProps) {
   );
 }
 
+import { useDisplayData } from "../../hooks/useDisplayData";
+
 export function Sidebar() {
   const {
     activeView,
     activePlaylistId,
-    playlists,
     isScanning,
     setActiveView,
     setActivePlaylist,
+    setShowImportPlaylist,
+    setShowCreatePlaylist,
   } = useStore(useShallow((s) => ({
     activeView: s.activeView,
     activePlaylistId: s.activePlaylistId,
-    playlists: s.playlists,
     isScanning: s.isScanning,
     setActiveView: s.setActiveView,
     setActivePlaylist: s.setActivePlaylist,
+    setShowImportPlaylist: s.setShowImportPlaylist,
+    setShowCreatePlaylist: s.setShowCreatePlaylist,
   })));
 
-  const { createNewPlaylist } = useLibrary();
+  const { displayPlaylists } = useDisplayData();
+  const { } = useLibrary();
 
-  const [creatingPlaylist, setCreatingPlaylist] = useState(false);
-  const [newPlaylistName, setNewPlaylistName] = useState("");
-
-  const { importPlaylist } = useLibrary();
-
-  const handleImportPlaylist = async () => {
-    await importPlaylist();
+  const handleImportPlaylist = () => {
+    setShowImportPlaylist(true);
   };
 
-  const handleCreatePlaylist = async () => {
-    const name = newPlaylistName.trim();
-    if (!name) return;
-    const pl = await createNewPlaylist(name);
-    if (pl) {
-      setNewPlaylistName("");
-      setCreatingPlaylist(false);
-      setActivePlaylist(pl.id);
-    }
+  const handleCreatePlaylist = () => {
+    setShowCreatePlaylist(true);
   };
 
   return (
+    <>
     <aside
       className="flex flex-col h-full glass-heavy !border-y-0 !border-l-0 border-r border-border-glass z-50 !shadow-none"
       style={{ width: "var(--sidebar-width)", minWidth: "var(--sidebar-width)" }}
@@ -145,10 +139,10 @@ export function Sidebar() {
               className="btn-icon w-6 h-6 p-0 hover:text-accent transition-colors"
               title="Import playlist (JSON)"
             >
-              <Music2 size={13} />
+              <Download size={13} />
             </button>
             <button
-              onClick={() => setCreatingPlaylist(true)}
+              onClick={handleCreatePlaylist}
               className="btn-icon w-6 h-6 p-0 hover:text-accent transition-colors"
               title="New playlist"
             >
@@ -157,48 +151,15 @@ export function Sidebar() {
           </div>
         </div>
 
-        {/* New playlist input */}
-        {creatingPlaylist && (
-          <div className="mx-1 mb-1 rounded-lg overflow-hidden border border-border-glass bg-surface-overlay animate-fade-in">
-            <input
-              autoFocus
-              value={newPlaylistName}
-              onChange={(e) => setNewPlaylistName(e.target.value)}
-              onKeyDown={(e) => {
-                if (e.key === "Enter") handleCreatePlaylist();
-                if (e.key === "Escape") {
-                  setCreatingPlaylist(false);
-                  setNewPlaylistName("");
-                }
-              }}
-              placeholder="Playlist name…"
-              className="w-full px-3 py-2 bg-transparent text-sm text-text-primary placeholder-text-muted outline-none"
-            />
-            <div className="flex border-t border-border-subtle">
-              <button
-                onClick={() => { setCreatingPlaylist(false); setNewPlaylistName(""); }}
-                className="flex-1 py-1.5 text-xs text-text-muted hover:text-text-primary transition-colors"
-              >
-                Cancel
-              </button>
-              <button
-                onClick={handleCreatePlaylist}
-                className="flex-1 py-1.5 text-xs text-accent font-semibold border-l border-border-subtle hover:bg-accent-muted transition-colors"
-              >
-                Create
-              </button>
-            </div>
-          </div>
-        )}
 
         {/* Playlist list */}
         <div className="flex flex-col gap-0.5 overflow-y-auto flex-1 pr-0.5">
-          {playlists.length === 0 ? (
+          {displayPlaylists.length === 0 ? (
             <p className="text-xs text-text-muted px-2 py-2 italic">
               No playlists yet
             </p>
           ) : (
-            playlists.map((pl) => (
+            displayPlaylists.map((pl) => (
               <button
                 key={pl.id}
                 onClick={() => setActivePlaylist(pl.id)}
@@ -206,7 +167,13 @@ export function Sidebar() {
                   activePlaylistId === pl.id ? "active" : ""
                 }`}
               >
-                <ListMusic size={14} className="flex-shrink-0" />
+                <div className="w-5 h-5 rounded-md bg-accent-muted flex items-center justify-center flex-shrink-0 overflow-hidden">
+                  {pl.coverArt ? (
+                    <img src={pl.coverArt} alt="" className="w-full h-full object-cover" />
+                  ) : (
+                    <ListMusic size={12} className="text-accent" />
+                  )}
+                </div>
                 <span className="flex-1 truncate text-sm">{pl.name}</span>
                 <ChevronRight
                   size={12}
@@ -227,5 +194,6 @@ export function Sidebar() {
       )}
 
       </aside>
+    </>
   );
 }

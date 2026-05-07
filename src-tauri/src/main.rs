@@ -62,6 +62,9 @@ pub struct Track {
     pub format: String,
     pub lyrics: Option<String>,
     pub date_added: u64,
+    pub source_id: Option<String>,
+    pub provider: Option<String>,
+    pub cover_art: Option<String>,
 }
 
 #[derive(Debug, Serialize, Deserialize, Clone)]
@@ -71,6 +74,8 @@ pub struct Playlist {
     pub file_path: String,
     pub track_ids: Vec<String>,
     pub created_at: u64,
+    pub tracks: Option<Vec<Track>>,
+    pub cover_art: Option<String>,
 }
 
 #[derive(Debug, Serialize, Deserialize)]
@@ -95,7 +100,7 @@ pub struct AppState {
     pub tray_enabled: AtomicBool,
 }
 
-#[derive(Debug, Serialize, Deserialize)]
+#[derive(Debug, Serialize, Deserialize, Clone)]
 pub struct HarbourSearchResult {
     pub id: String,
     pub title: String,
@@ -213,6 +218,22 @@ fn parse_track(path: &Path) -> Result<Track, String> {
     };
     let id = format!("{:x}", hash_string(&id_seed));
 
+    let source_id = tag.and_then(|t| {
+        t.get(&ItemKey::Comment)
+            .and_then(|item| item.value().text())
+            .and_then(|txt| {
+                txt.lines().find(|l| l.starts_with("mws-id:")).map(|l| l[7..].to_string())
+            })
+    });
+
+    let provider = tag.and_then(|t| {
+        t.get(&ItemKey::Comment)
+            .and_then(|item| item.value().text())
+            .and_then(|txt| {
+                txt.lines().find(|l| l.starts_with("mws-provider:")).map(|l| l[13..].to_string())
+            })
+    });
+
     Ok(Track {
         id,
         title,
@@ -229,6 +250,9 @@ fn parse_track(path: &Path) -> Result<Track, String> {
         format,
         lyrics,
         date_added,
+        source_id,
+        provider,
+        cover_art: None,
     })
 }
 
@@ -265,6 +289,15 @@ fn get_app_paths(app_handle: tauri::AppHandle) -> Result<AppPaths, String> {
         playlists_dir: playlists_dir.to_string_lossy().to_string(),
         covers_dir: covers_dir.to_string_lossy().to_string(),
     })
+}
+
+#[tauri::command]
+fn get_downloads_dir(app_handle: tauri::AppHandle) -> Result<String, String> {
+    app_handle
+        .path()
+        .download_dir()
+        .map(|p| p.to_string_lossy().to_string())
+        .map_err(|e| e.to_string())
 }
 
 #[tauri::command]
@@ -416,6 +449,8 @@ fn create_playlist(playlists_dir: String, name: String) -> Result<Playlist, Stri
         file_path: file_path.to_string_lossy().to_string(),
         track_ids: vec![],
         created_at,
+        tracks: None,
+        cover_art: None,
     };
 
     let manifest = serde_json::to_string_pretty(&playlist).map_err(|e| e.to_string())?;
@@ -436,9 +471,51 @@ fn delete_track(file_path: String) -> Result<(), String> {
 #[tauri::command]
 fn save_playlist(playlist: Playlist) -> Result<(), String> {
     let path = PathBuf::from(&playlist.file_path);
+    if let Some(parent) = path.parent() {
+        fs::create_dir_all(parent).map_err(|e| e.to_string())?;
+    }
     let manifest = serde_json::to_string_pretty(&playlist).map_err(|e| e.to_string())?;
     fs::write(path, manifest).map_err(|e| e.to_string())?;
     Ok(())
+}
+
+#[tauri::command]
+fn rename_playlist(mut playlist: Playlist, new_name: String) -> Result<Playlist, String> {
+    let old_path = PathBuf::from(&playlist.file_path);
+    if !old_path.exists() {
+        return Err("Original playlist file not found".to_string());
+    }
+
+    let parent = old_path.parent().ok_or("Could not find playlist directory")?;
+    
+    // Sanitize name for filesystem
+    let safe_name: String = new_name
+        .chars()
+        .filter(|c| c.is_alphanumeric() || *c == ' ' || *c == '-' || *c == '_')
+        .collect();
+    
+    let mut new_path = parent.join(format!("{}.json", safe_name));
+    
+    // Handle collisions
+    let mut counter = 1;
+    while new_path.exists() && new_path != old_path {
+        new_path = parent.join(format!("{} ({}).json", safe_name, counter));
+        counter += 1;
+    }
+
+    // Update internal data
+    playlist.name = new_name;
+    playlist.file_path = new_path.to_string_lossy().to_string();
+
+    // Perform rename/write
+    let manifest = serde_json::to_string_pretty(&playlist).map_err(|e| e.to_string())?;
+    fs::write(&new_path, manifest).map_err(|e| e.to_string())?;
+    
+    if new_path != old_path {
+        fs::remove_file(old_path).map_err(|e| format!("Failed to remove old file: {}", e))?;
+    }
+
+    Ok(playlist)
 }
 
 #[tauri::command]
@@ -732,42 +809,39 @@ async fn youtube_search_fallback(app_handle: tauri::AppHandle, query: String) ->
 }
 
 #[tauri::command]
-async fn fetch_track_metadata(query: String) -> Result<HarbourSearchResult, String> {
-    let client = reqwest::Client::new();
-    let search_url = format!("https://itunes.apple.com/search?term={}&entity=song&limit=1", urlencoding::encode(&query));
-
-    let resp = client
-        .get(search_url)
-        .header(reqwest::header::USER_AGENT, "Mozilla/5.0")
-        .send()
-        .await
-        .map_err(|e| format!("Metadata fetch failed: {}", e))?;
-
-    let data: serde_json::Value = resp.json().await.map_err(|e| e.to_string())?;
-
-    if let Some(results) = data["results"].as_array() {
+async fn fetch_track_metadata(app_handle: tauri::AppHandle, query: String) -> Result<HarbourSearchResult, String> {
+    if query.contains("jiosaavn.com") {
+        let results = search_jiosaavn(app_handle.clone(), query.clone()).await?;
         if !results.is_empty() {
-            let s = &results[0];
-            let cover_art = s["artworkUrl100"].as_str().unwrap_or_default().replace("100x100bb", "200x200bb");
-            return Ok(HarbourSearchResult {
-                id: s["trackId"].as_i64().unwrap_or_default().to_string(),
-                title: s["trackName"].as_str().unwrap_or_default().to_string(),
-                artist: s["artistName"].as_str().unwrap_or_default().to_string(),
-                album: s["collectionName"].as_str().unwrap_or_default().to_string(),
-                duration: s["trackTimeMillis"].as_f64().unwrap_or(0.0) / 1000.0,
-                cover_art,
-                url: s["trackViewUrl"].as_str().unwrap_or_default().to_string(),
-            });
+            return Ok(results[0].clone());
         }
     }
     
-    Err("No metadata found for this track".to_string())
+    if query.contains("youtube.com") || query.contains("youtu.be") {
+        let results = search_youtube_direct(app_handle.clone(), query.clone()).await?;
+        if !results.is_empty() {
+            return Ok(results[0].clone());
+        }
+    }
+
+    let results = search_itunes(app_handle, query).await?;
+    if !results.is_empty() {
+        return Ok(results[0].clone());
+    }
+
+    Err("No metadata found for this link".to_string())
 }
 
 #[derive(Clone, Serialize)]
 struct DownloadProgress {
     id: String,
     progress: f64,
+}
+
+#[derive(Clone, Serialize)]
+struct DownloadLog {
+    id: String,
+    message: String,
 }
 
 #[tauri::command]
@@ -779,70 +853,79 @@ async fn download_track(
     _album: String,
     _cover_art: String,
     download_id: String,
+    url: Option<String>,
+    format: Option<String>,
+    ip_version: Option<String>,
+    provider: Option<String>,
 ) -> Result<String, String> {
     use std::process::{Command, Stdio};
     use std::io::{BufRead, BufReader};
     use tauri::Emitter;
 
+    let fmt = format.unwrap_or_else(|| "mp3".to_string());
+    let is_video = fmt == "mp4";
+    let ipv = if ip_version.unwrap_or_default() == "ipv6" { "-6" } else { "-4" };
+
     let safe_title = title.replace("/", "_").replace("\\", "_");
     let safe_artist = artist.replace("/", "_").replace("\\", "_");
-    let filename = format!("{} - {}.mp3", safe_artist, safe_title);
+    let ext = if is_video { "mp4" } else { "mp3" };
+    let filename = format!("{} - {}.{}", safe_artist, safe_title, ext);
     let target_path = PathBuf::from(&music_dir).join(&filename);
 
     if target_path.exists() {
         return Ok(target_path.to_string_lossy().to_string());
     }
 
-    let search_query = format!(
-        "ytsearch1:{} official audio",
-        format!("{} - {}", artist, title)
-    );
+    let query = url.as_ref().cloned().unwrap_or_else(|| {
+        format!("ytsearch1:{} official audio", format!("{} - {}", artist, title))
+    });
 
     let yt_dlp_path = get_yt_dlp_path(&app_handle).await;
     let ffmpeg_path = get_ffmpeg_path(&app_handle).await;
     
-    let mut cmd = if yt_dlp_path.exists() {
-        let mut c = Command::new(&yt_dlp_path);
-        c.args([
-            "-4",
-            "--no-cache-dir",
-            "--no-check-certificates",
-            "--geo-bypass",
-            "--extractor-args", "youtube:player-client=ios,android,web",
-            "--extract-audio",
-            "--audio-format", "mp3",
-            "--audio-quality", "0",
-            "--output", target_path.to_str().ok_or("Invalid target path")?,
-            "--no-playlist",
-            "--prefer-ffmpeg",
-            "--newline",
-            "--progress",
-        ]);
-        if ffmpeg_path.exists() {
-            c.arg("--ffmpeg-location").arg(&ffmpeg_path);
-        }
-        c.arg(&search_query);
-        c
+    let mut args = vec![
+        ipv.to_string(),
+        "--no-cache-dir".to_string(),
+        "--no-check-certificates".to_string(),
+        "--geo-bypass".to_string(),
+        "--extractor-args".to_string(), "youtube:player-client=ios,android,web".to_string(),
+        "--no-playlist".to_string(),
+        "--prefer-ffmpeg".to_string(),
+        "--newline".to_string(),
+        "--progress".to_string(),
+    ];
+
+    if is_video {
+        args.push("--format".to_string());
+        args.push("bestvideo+bestaudio/best".to_string());
+        args.push("--merge-output-format".to_string());
+        args.push("mp4".to_string());
+        args.push("--remux-video".to_string());
+        args.push("mp4".to_string());
     } else {
-        let mut c = Command::new("yt-dlp");
-        c.args([
-            "-4",
-            "--no-cache-dir",
-            "--no-check-certificates",
-            "--geo-bypass",
-            "--extractor-args", "youtube:player-client=ios,android,web",
-            "--extract-audio",
-            "--audio-format", "mp3",
-            "--audio-quality", "0",
-            "--output", target_path.to_str().ok_or("Invalid target path")?,
-            "--no-playlist",
-            "--prefer-ffmpeg",
-            "--newline",
-            "--progress",
-            &search_query
-        ]);
-        c
+        args.push("--extract-audio".to_string());
+        args.push("--audio-format".to_string());
+        args.push("mp3".to_string());
+        args.push("--audio-quality".to_string());
+        args.push("0".to_string());
+    }
+
+    args.push("--output".to_string());
+    args.push(target_path.to_str().ok_or("Invalid target path")?.to_string());
+
+    if ffmpeg_path.exists() {
+        args.push("--ffmpeg-location".to_string());
+        args.push(ffmpeg_path.to_str().unwrap().to_string());
+    }
+
+    args.push(query);
+
+    let mut cmd = if yt_dlp_path.exists() {
+        Command::new(&yt_dlp_path)
+    } else {
+        Command::new("yt-dlp")
     };
+    cmd.args(&args);
 
     cmd.stdout(Stdio::piped());
     cmd.stderr(Stdio::piped());
@@ -853,6 +936,11 @@ async fn download_track(
 
     for line in reader.lines() {
         if let Ok(l) = line {
+            let _ = app_handle.emit("download-log", DownloadLog {
+                id: download_id.clone(),
+                message: l.clone(),
+            });
+
             if l.contains("[download]") && l.contains("%") {
                 // Parse percentage like "  10.5%"
                 let parts: Vec<&str> = l.split_whitespace().collect();
@@ -890,6 +978,19 @@ async fn download_track(
         tag.insert_text(ItemKey::TrackTitle, title.clone());
         tag.insert_text(ItemKey::TrackArtist, artist.clone());
         tag.insert_text(ItemKey::AlbumTitle, _album.clone());
+        
+        // Save source ID and provider for recommendation feature
+        let mut comment = String::new();
+        if let Some(ref sid) = url {
+            comment.push_str(&format!("mws-id:{}\n", sid));
+        }
+        if let Some(ref p) = provider {
+            comment.push_str(&format!("mws-provider:{}", p));
+        }
+        if !comment.is_empty() {
+            tag.insert_text(ItemKey::Comment, comment);
+        }
+
 
         // Attempt to download and embed cover art
         if !_cover_art.is_empty() {
@@ -1611,6 +1712,7 @@ fn main() {
             list_playlists,
             create_playlist,
             save_playlist,
+            rename_playlist,
             delete_playlist,
             pick_directory,
             get_cover_art,
@@ -1638,6 +1740,7 @@ fn main() {
             is_window_maximized,
             set_window_decorations,
             start_window_drag,
+            get_downloads_dir,
             clear_image_cache,
         ])
         .on_window_event(|window, event| {

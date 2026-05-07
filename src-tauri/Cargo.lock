@@ -2648,7 +2648,7 @@ dependencies = [
 
 [[package]]
 name = "mewsic"
-version = "0.6.6"
+version = "0.6.9"
 dependencies = [
  "base64 0.21.7",
  "discord-rich-presence",

@@ -68,22 +68,38 @@ export async function createPlaylist(
   return deepCamel(raw) as Playlist;
 }
 
-export async function savePlaylist(playlist: Playlist): Promise<void> {
-  function toSnake(s: string) {
-    return s.replace(/([A-Z])/g, (_: string, c: string) => `_${c.toLowerCase()}`);
-  }
-  function deepSnake(obj: unknown): unknown {
-    if (Array.isArray(obj)) return obj.map(deepSnake);
-    if (obj !== null && typeof obj === "object") {
-      const out: Record<string, unknown> = {};
-      for (const [k, v] of Object.entries(obj as Record<string, unknown>)) {
-        out[toSnake(k)] = deepSnake(v);
-      }
-      return out;
+function toSnake(s: string) {
+  return s.replace(/([A-Z])/g, (_: string, c: string) => `_${c.toLowerCase()}`);
+}
+function deepSnake(obj: unknown): unknown {
+  if (Array.isArray(obj)) return obj.map(deepSnake);
+  if (obj !== null && typeof obj === "object") {
+    const out: Record<string, unknown> = {};
+    for (const [k, v] of Object.entries(obj as Record<string, unknown>)) {
+      out[toSnake(k)] = deepSnake(v);
     }
-    return obj;
+    return out;
   }
+  return obj;
+}
+
+export async function savePlaylist(playlist: Playlist): Promise<void> {
   await invoke("save_playlist", { playlist: deepSnake(playlist) });
+}
+
+export async function renamePlaylist(playlist: Playlist, newName: string): Promise<Playlist> {
+  const result = await invoke<any>("rename_playlist", { playlist: deepSnake(playlist), newName });
+  // Map snake_case result back to camelCase Playlist with fallbacks
+  return {
+    ...playlist,
+    id: result.id ?? playlist.id,
+    name: result.name ?? newName,
+    filePath: result.file_path ?? playlist.filePath,
+    trackIds: result.track_ids ?? playlist.trackIds,
+    createdAt: result.created_at ?? playlist.createdAt,
+    coverArt: result.cover_art ?? playlist.coverArt,
+    tracks: result.tracks ?? playlist.tracks,
+  };
 }
 
 export async function deletePlaylist(filePath: string): Promise<void> {
@@ -246,7 +262,8 @@ export async function downloadTrack(
   artist: string,
   album: string,
   coverArt: string,
-  downloadId: string
+  downloadId: string,
+  provider?: string
 ): Promise<string> {
   return await invoke("download_track", {
     musicDir,
@@ -255,6 +272,7 @@ export async function downloadTrack(
     album,
     coverArt,
     downloadId,
+    provider
   });
 }
 

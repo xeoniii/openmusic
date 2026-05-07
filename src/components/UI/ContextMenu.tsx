@@ -14,7 +14,8 @@ import {
   Pencil,
   Trash2,
   PlusCircle,
-  MinusCircle
+  MinusCircle,
+  Share2
 } from "lucide-react";
 import { toggleFullscreen } from "../../utils/tauriApi";
 import { useStore } from "../../store";
@@ -172,6 +173,18 @@ export function ContextMenu() {
     await toggleFullscreen();
   };
 
+  const handleRecommend = async () => {
+    if (!contextTrack) return;
+    // If we have a sourceId (URL), use it. Otherwise use Title - Artist so it's searchable.
+    const code = `MWS-${contextTrack.sourceId || `${contextTrack.title} - ${contextTrack.artist}`}`;
+    try {
+      await navigator.clipboard.writeText(code);
+      setVisible(false);
+    } catch (err) {
+      console.error("Failed to copy recommendation code", err);
+    }
+  };
+
   const handleRemoveFromPlaylist = async () => {
     if (!contextTrack || !activePlaylistId) return;
     const playlist = playlists.find(p => p.id === activePlaylistId);
@@ -253,6 +266,11 @@ export function ContextMenu() {
                 onClick={() => { setAddTrack(contextTrack); setVisible(false); }} 
               />
             )}
+            <ContextMenuItem 
+              icon={<Share2 size={16} />} 
+              label="Recommend" 
+              onClick={handleRecommend} 
+            />
             <ContextMenuItem 
               icon={<Trash2 size={16} />} 
               label="Delete from Disk" 

@@ -14,6 +14,9 @@ export interface Track {
   format: string;
   lyrics?: string;
   dateAdded: number;
+  sourceId?: string;
+  provider?: string;
+  coverArt?: string;
 }
 
 export interface Playlist {
@@ -22,6 +25,8 @@ export interface Playlist {
   filePath: string;
   trackIds: string[];
   createdAt: number;
+  tracks?: Track[];
+  coverArt?: string;
 }
 
 export interface AppPaths {
@@ -37,7 +42,7 @@ export interface ScanResult {
 }
 
 export type AccentPreset =
-  | "modrinth"
+  | "mint"
   | "sapphire"
   | "violet"
   | "rose"

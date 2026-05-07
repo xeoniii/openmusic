@@ -40,15 +40,14 @@ function Section({
   );
 }
 
+import { useDisplayData } from "../../hooks/useDisplayData";
+
 export function SettingsView() {
   const {
     accentColor,
-    tracks,
     volume,
     setAccentColor,
     setVolume,
-    musicDir,
-    playlistsDir,
     guiScale,
     setGuiScale,
     trayEnabled,
@@ -69,12 +68,9 @@ export function SettingsView() {
     clearDiscordCoverCache,
   } = useStore(useShallow((s) => ({
     accentColor: s.accentColor,
-    tracks: s.tracks,
     volume: s.volume,
     setAccentColor: s.setAccentColor,
     setVolume: s.setVolume,
-    musicDir: s.musicDir,
-    playlistsDir: s.playlistsDir,
     guiScale: s.guiScale,
     setGuiScale: s.setGuiScale,
     trayEnabled: s.trayEnabled,
@@ -95,6 +91,7 @@ export function SettingsView() {
     clearDiscordCoverCache: s.clearDiscordCoverCache,
   })));
 
+  const { displayTracks, displayMusicDir, displayPlaylistsDir } = useDisplayData();
   const { 
     changeMusicDirectory, 
     changePlaylistsDirectory, 
@@ -110,7 +107,7 @@ export function SettingsView() {
   const [clearingDiscord, setClearingDiscord] = useState(false);
   const [showFlashbangWarning, setShowFlashbangWarning] = useState(false);
   const [showRestartModal, setShowRestartModal] = useState(false);
-  const [appVersion, setAppVersion] = useState<string>("0.6.6");
+  const [appVersion, setAppVersion] = useState<string>("0.6.9");
   const [localGuiScale, setLocalGuiScale] = useState(guiScale);
 
   useEffect(() => {
@@ -302,7 +299,7 @@ export function SettingsView() {
                     <button onClick={importSongs} title="Import Songs" className="p-1.5 rounded-lg bg-surface-raised border border-border-subtle hover:border-accent hover:text-accent transition-all">
                       <FileUp size={14} />
                     </button>
-                    <button onClick={handleRescan} disabled={scanning || !musicDir} title="Rescan Library" className="p-1.5 rounded-lg bg-surface-raised border border-border-subtle hover:border-accent hover:text-accent transition-all disabled:opacity-30">
+                    <button onClick={handleRescan} disabled={scanning || !displayMusicDir} title="Rescan Library" className="p-1.5 rounded-lg bg-surface-raised border border-border-subtle hover:border-accent hover:text-accent transition-all disabled:opacity-30">
                       <RefreshCw size={14} className={scanning ? "animate-spin" : ""} />
                     </button>
                     <button onClick={changeMusicDirectory} title="Change Folder" className="p-1.5 rounded-lg bg-surface-raised border border-border-subtle hover:border-accent hover:text-accent transition-all">
@@ -311,7 +308,7 @@ export function SettingsView() {
                   </div>
                 </div>
                 <div className="px-3 py-2 rounded-xl bg-surface-overlay border border-border-subtle overflow-hidden">
-                  <p className="text-[10px] text-text-muted font-mono truncate">{musicDir || "None selected"}</p>
+                  <p className="text-[10px] text-text-muted font-mono truncate">{displayMusicDir || "None selected"}</p>
                 </div>
               </div>
               <div className="flex flex-col gap-2">
@@ -321,7 +318,7 @@ export function SettingsView() {
                     <button onClick={importPlaylist} title="Import Playlist" className="p-1.5 rounded-lg bg-surface-raised border border-border-subtle hover:border-accent hover:text-accent transition-all">
                       <FolderPlus size={14} />
                     </button>
-                    <button onClick={handleRefreshPlaylists} disabled={refreshingPlaylists || !playlistsDir} title="Refresh Playlists" className="p-1.5 rounded-lg bg-surface-raised border border-border-subtle hover:border-accent hover:text-accent transition-all disabled:opacity-30">
+                    <button onClick={handleRefreshPlaylists} disabled={refreshingPlaylists || !displayPlaylistsDir} title="Refresh Playlists" className="p-1.5 rounded-lg bg-surface-raised border border-border-subtle hover:border-accent hover:text-accent transition-all disabled:opacity-30">
                       <RefreshCw size={14} className={refreshingPlaylists ? "animate-spin" : ""} />
                     </button>
                     <button onClick={changePlaylistsDirectory} title="Change Folder" className="p-1.5 rounded-lg bg-surface-raised border border-border-subtle hover:border-accent hover:text-accent transition-all">
@@ -330,7 +327,7 @@ export function SettingsView() {
                   </div>
                 </div>
                 <div className="px-3 py-2 rounded-xl bg-surface-overlay border border-border-subtle overflow-hidden">
-                  <p className="text-[10px] text-text-muted font-mono truncate">{playlistsDir || "None selected"}</p>
+                  <p className="text-[10px] text-text-muted font-mono truncate">{displayPlaylistsDir || "None selected"}</p>
                 </div>
               </div>
 
@@ -498,10 +495,10 @@ export function SettingsView() {
           <Section icon={<Info size={16} />} title="Library Info">
             <div className="grid grid-cols-2 gap-4">
               {[
-                ["Tracks", tracks.length],
-                ["Artists", new Set(tracks.map((t) => t.artist)).size],
-                ["Albums", new Set(tracks.map((t) => t.album)).size],
-                ["Formats", [...new Set(tracks.map((t) => t.format))].join(", ") || "—"],
+                ["Tracks", displayTracks.length],
+                ["Artists", new Set(displayTracks.map((t) => t.artist)).size],
+                ["Albums", new Set(displayTracks.map((t) => t.album)).size],
+                ["Formats", [...new Set(displayTracks.map((t) => t.format))].join(", ") || "—"],
               ].map(([label, value]) => (
                 <div key={String(label)} className="p-3 rounded-xl bg-surface-overlay border border-border-subtle">
                   <span className="text-[10px] text-text-muted uppercase font-bold tracking-widest block mb-1">{label}</span>

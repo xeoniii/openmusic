@@ -1,6 +1,6 @@
 [package]
 name = "mewsic"
-version = "0.6.6"
+version = "0.6.9"
 description = "Mewsic — A modern offline music player"
 authors = ["xeoniii <https://github.com/xeoniii>"]
 license = "GPL-3.0-only"

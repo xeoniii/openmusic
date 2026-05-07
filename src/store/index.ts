@@ -99,6 +99,11 @@ interface UISlice {
   systemNotifications: boolean;
   lowEndMode: boolean;
   shortcuts: ShortcutMap;
+  deleteTrack: Track | null;
+  showImportPlaylist: boolean;
+  showCreatePlaylist: boolean;
+  showCyberdeck: boolean;
+  isDemoMode: boolean;
 
   setActiveView: (v: ViewId, skipHistory?: boolean) => void;
   setActivePlaylist: (id: string | null, skipHistory?: boolean) => void;
@@ -122,6 +127,10 @@ interface UISlice {
   setEditTrack: (t: Track | null) => void;
   setAddTrack: (t: Track | null) => void;
   setDeleteTrack: (t: Track | null) => void;
+  setShowImportPlaylist: (v: boolean) => void;
+  setShowCreatePlaylist: (v: boolean) => void;
+  setShowCyberdeck: (v: boolean) => void;
+  setDemoMode: (v: boolean) => void;
   setShortcut: (action: keyof ShortcutMap, key: string, ctrl?: boolean, shift?: boolean, alt?: boolean) => void;
   resetShortcuts: () => void;
   goBack: () => void;
@@ -272,7 +281,16 @@ export const useStore = create<Store>()(
         set({ tracks: merged });
       },
       setPlaylists: (playlists) => set({ playlists }),
-      addPlaylist: (p) => set((s) => ({ playlists: [...s.playlists, p] })),
+      addPlaylist: (p) =>
+        set((s) => {
+          const exists = s.playlists.some((pl) => pl.id === p.id);
+          if (exists) {
+            return {
+              playlists: s.playlists.map((pl) => (pl.id === p.id ? p : pl)),
+            };
+          }
+          return { playlists: [...s.playlists, p] };
+        }),
       updatePlaylist: (p) =>
         set((s) => ({
           playlists: s.playlists.map((pl) => (pl.id === p.id ? p : pl)),
@@ -328,7 +346,7 @@ export const useStore = create<Store>()(
       activeView: "home",
       activePlaylistId: null,
       searchQuery: "",
-      accentColor: "modrinth",
+      accentColor: "mint",
       volume: 0.8,
       repeatMode: "off",
       shuffleEnabled: false,
@@ -347,6 +365,10 @@ export const useStore = create<Store>()(
       discordEnabled: true,
       systemNotifications: true,
       lowEndMode: false,
+      showImportPlaylist: false,
+      showCreatePlaylist: false,
+      showCyberdeck: false,
+      isDemoMode: false,
 
       setActiveView: (v, skipHistory = false) => {
         const { history, historyIndex } = get();
@@ -449,6 +471,10 @@ export const useStore = create<Store>()(
       setEditTrack: (t) => set({ editTrack: t }),
       setAddTrack: (t) => set({ addTrack: t }),
       setDeleteTrack: (t) => set({ deleteTrack: t }),
+      setShowImportPlaylist: (v) => set({ showImportPlaylist: v }),
+      setShowCreatePlaylist: (v) => set({ showCreatePlaylist: v }),
+      setShowCyberdeck: (v) => set({ showCyberdeck: v }),
+      setDemoMode: (v) => set({ isDemoMode: v }),
       goBack: () => {
         const { history, historyIndex, setActiveView, setActivePlaylist } = get();
         if (historyIndex > 0) {

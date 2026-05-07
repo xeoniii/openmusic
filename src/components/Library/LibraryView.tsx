@@ -118,13 +118,14 @@ const GridContent = memo(function GridContent({
   );
 });
 
+import { useDisplayData } from "../../hooks/useDisplayData";
+
 export function LibraryView() {
   const {
-    tracks, isScanning, searchQuery, setSearchQuery, musicDir,
+    isScanning, searchQuery, setSearchQuery, musicDir,
     libraryViewMode, setLibraryViewMode, removeTrack, addNotification,
     setAddTrack, setEditTrack, setDeleteTrack
   } = useStore(useShallow((s) => ({
-    tracks: s.tracks,
     isScanning: s.isScanning,
     searchQuery: s.searchQuery,
     setSearchQuery: s.setSearchQuery,
@@ -138,6 +139,7 @@ export function LibraryView() {
     setDeleteTrack: s.setDeleteTrack,
   })));
 
+  const { displayTracks, demoTrackCount } = useDisplayData();
   const { rescanDirectory } = useLibrary();
 
   const [sortKey, setSortKey] = useState<SortKey>("title");
@@ -214,13 +216,13 @@ export function LibraryView() {
   const filtered = useMemo(() => {
     const q = localSearch.toLowerCase();
     let list = q
-      ? tracks.filter(
+      ? displayTracks.filter(
           (t) =>
             t.title.toLowerCase().includes(q) ||
             t.artist.toLowerCase().includes(q) ||
             t.album.toLowerCase().includes(q)
         )
-      : [...tracks];
+      : [...displayTracks];
 
     list.sort((a, b) => {
       const av = String(a[sortKey] ?? "");
@@ -230,7 +232,7 @@ export function LibraryView() {
       return a.id.localeCompare(b.id);
     });
     return list;
-  }, [tracks, localSearch, sortKey, sortAsc]);
+  }, [displayTracks, localSearch, sortKey, sortAsc]);
 
   const SortBtn = ({
     k,
@@ -328,9 +330,9 @@ export function LibraryView() {
 
       {/* Track count */}
       <div className="px-6 py-2 text-xs text-text-muted flex-shrink-0">
-        {filtered.length === tracks.length
-          ? `${tracks.length} tracks`
-          : `${filtered.length} of ${tracks.length} tracks`}
+        {filtered.length === displayTracks.length
+          ? `${demoTrackCount} tracks`
+          : `${filtered.length} of ${demoTrackCount} tracks`}
       </div>
 
       {/* Content */}
